@@ -41,6 +41,7 @@ db:
 
 elasticsearch:
   enabled: true
+  image: elasticsearch:7.10.2
 
 jobrunner:
   enabled: true
