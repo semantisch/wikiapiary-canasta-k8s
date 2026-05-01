@@ -84,6 +84,7 @@ configData:
       MYSQL_PASSWORD=
       MW_SITE_SERVER=https://wikiapiary.dobriy.ai
       MW_SITE_FQDN=wikiapiary.dobriy.ai
+      CADDY_AUTO_HTTPS=off
       PHP_UPLOAD_MAX_FILESIZE=50M
       PHP_POST_MAX_SIZE=50M
       PHP_MAX_INPUT_VARS=1000
@@ -98,11 +99,29 @@ configData:
           url: wikiapiary.dobriy.ai
           name: WikiApiary
   env:
+    CADDY_AUTO_HTTPS: "off"
     PHP_UPLOAD_MAX_FILESIZE: "50M"
     PHP_POST_MAX_SIZE: "50M"
     PHP_MAX_INPUT_VARS: "1000"
     CANASTA_ENABLE_ELASTICSEARCH: "false"
     MW_SITEMAP_PAUSE_DAYS: "1"
+  caddy:
+    Caddyfile: |
+      # Auto-generated for the hosting cluster GitOps deployment.
+      import /etc/caddy/Caddyfile.global
+
+      http://wikiapiary.dobriy.ai {
+          import /etc/caddy/Caddyfile.site
+          reverse_proxy varnish:80
+
+          log {
+              output file /var/log/caddy/access.log
+          }
+      }
+    Caddyfile.site: |
+      # Site-level Caddy configuration for WikiApiary.
+    Caddyfile.global: |
+      # Global Caddy configuration for WikiApiary.
 
 argocd:
   namespace: argocd
