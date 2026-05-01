@@ -1,0 +1,111 @@
+instance:
+  id: wikiapiary
+
+image:
+  repository: ghcr.io/canastawiki/canasta
+  tag: "3.5.2"
+  pullPolicy: IfNotPresent
+
+domains:
+  - wikiapiary.dobriy.ai
+
+web:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+caddy:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+varnish:
+  enabled: true
+
+db:
+  enabled: true
+  storage: 20Gi
+  storageClass: local-path
+
+elasticsearch:
+  enabled: false
+
+jobrunner:
+  enabled: true
+
+ingress:
+  enabled: true
+  className: nginx
+  tls: true
+  annotations: {}
+  certManager:
+    enabled: true
+    issuer: letsencrypt-prod
+
+persistence:
+  images:
+    size: 20Gi
+    storageClass: local-path
+    accessMode: ReadWriteOnce
+  extensions:
+    size: 2Gi
+    storageClass: local-path
+    accessMode: ReadWriteOnce
+  skins:
+    size: 2Gi
+    storageClass: local-path
+    accessMode: ReadWriteOnce
+  publicAssets:
+    size: 2Gi
+    storageClass: local-path
+    accessMode: ReadWriteOnce
+
+secrets:
+  dbSecretName: wikiapiary-db-credentials
+  mwSecretName: wikiapiary-mw-secrets
+
+configData:
+  web:
+    .env: |
+      HTTP_PORT=80
+      HTTPS_PORT=443
+      MYSQL_PASSWORD=
+      MW_SITE_SERVER=https://wikiapiary.dobriy.ai
+      MW_SITE_FQDN=wikiapiary.dobriy.ai
+      PHP_UPLOAD_MAX_FILESIZE=50M
+      PHP_POST_MAX_SIZE=50M
+      PHP_MAX_INPUT_VARS=1000
+      CANASTA_ENABLE_ELASTICSEARCH=false
+      CANASTA_ENABLE_VARNISH=true
+      CANASTA_ENABLE_WIKI_DIRECTORY=false
+      MW_SITEMAP_PAUSE_DAYS=1
+      USE_EXTERNAL_DB=false
+    wikis.yaml: |
+      wikis:
+        - id: main
+          url: wikiapiary.dobriy.ai
+          name: WikiApiary
+  env:
+    PHP_UPLOAD_MAX_FILESIZE: "50M"
+    PHP_POST_MAX_SIZE: "50M"
+    PHP_MAX_INPUT_VARS: "1000"
+    CANASTA_ENABLE_ELASTICSEARCH: "false"
+    MW_SITEMAP_PAUSE_DAYS: "1"
+
+argocd:
+  namespace: argocd
+  repoURL: ""
+  targetRevision: HEAD
+  syncPolicy:
+    automated: true
+    selfHeal: true
+    prune: true

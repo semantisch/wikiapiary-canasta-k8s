@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "canasta.fullname" . }}-images
+  namespace: {{ include "canasta.namespace" . }}
+  labels:
+    {{- include "canasta.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.persistence.images.accessMode }}
+  {{- if .Values.persistence.images.storageClass }}
+  storageClassName: {{ .Values.persistence.images.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.images.size }}

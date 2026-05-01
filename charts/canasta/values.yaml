@@ -1,0 +1,157 @@
+# Default values for the Canasta Helm chart.
+
+# Instance identity
+instance:
+  id: ""
+
+# Canasta image
+image:
+  repository: ghcr.io/canastawiki/canasta
+  tag: ""               # defaults to chart appVersion if empty
+  pullPolicy: IfNotPresent
+
+# Domains for ingress routing (all domains used by wikis in this instance)
+# Wiki farm config (wiki IDs, paths, names) lives in wikis.yaml on the config PVC.
+domains:
+  - localhost
+
+# Web tier
+web:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+# Caddy (reverse proxy + wiki farm routing)
+caddy:
+  image: caddy:2.10.2-alpine
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+# Varnish cache
+varnish:
+  enabled: true
+  image: varnish:7.0.2-alpine
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+# Database (MariaDB)
+# Set db.enabled=false and externalDatabase settings to use an external DB.
+db:
+  enabled: true
+  image: mariadb:11.4
+  storage: 10Gi
+  storageClass: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# External database (when db.enabled=false)
+externalDatabase:
+  host: ""
+  port: "3306"
+  user: "root"
+  ssl: "false"
+
+# Elasticsearch (optional)
+elasticsearch:
+  enabled: false
+  image: elasticsearch:7.17.9
+  storage: 5Gi
+  storageClass: ""
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+# Job runner
+jobrunner:
+  enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Ingress
+ingress:
+  enabled: true
+  className: ""
+  tls: true
+  annotations: {}
+  certManager:
+    enabled: false
+    issuer: letsencrypt-prod
+
+# Persistent volumes
+# For multi-node multi-replica web pods, set storageClass to a
+# ReadWriteMany provisioner (e.g. nfs, efs) AND set accessMode to
+# ReadWriteMany. The default ReadWriteOnce is correct for single-node
+# clusters and for multi-replica deployments where all pods can be
+# scheduled to the same node. See `canasta storage setup --help` for
+# the available shared-storage commands.
+persistence:
+  images:
+    size: 10Gi
+    storageClass: ""
+    accessMode: ReadWriteOnce
+  extensions:
+    size: 1Gi
+    storageClass: ""
+    accessMode: ReadWriteOnce
+  skins:
+    size: 1Gi
+    storageClass: ""
+    accessMode: ReadWriteOnce
+  publicAssets:
+    size: 1Gi
+    storageClass: ""
+    accessMode: ReadWriteOnce
+
+# Secrets — names of K8s Secrets created by Ansible (not stored here)
+secrets:
+  dbSecretName: ""      # set by Ansible: <instance_id>-db-credentials
+  mwSecretName: ""      # set by Ansible: <instance_id>-mw-secrets
+
+# Config data — populated by Ansible or committed via gitops.
+# Helm renders these into ConfigMaps for each component.
+# When empty, ConfigMaps are not created (allows external management).
+configData:
+  web: {}       # .env, wikis.yaml, settings--*--*.php, composer.local.json
+  env: {}       # allowlisted env vars extracted from .env, one per ConfigMap key
+  caddy: {}     # Caddyfile, Caddyfile.site, Caddyfile.global
+  varnish: {}   # default.vcl
+  db: {}        # my.cnf
+
+# Argo CD
+argocd:
+  namespace: argocd
+  repoURL: ""
+  targetRevision: HEAD
+  syncPolicy:
+    automated: true
+    selfHeal: true
+    prune: true

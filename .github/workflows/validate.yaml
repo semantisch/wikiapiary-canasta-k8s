@@ -1,0 +1,27 @@
+name: Validate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  helm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.20.0
+
+      - name: Lint chart
+        run: helm lint charts/canasta -f values/prod.yaml
+
+      - name: Render manifests
+        run: helm template canasta-wikiapiary charts/canasta -f values/prod.yaml >/tmp/wikiapiary-rendered.yaml
+
+      - name: Verify rendered output is non-empty
+        run: test -s /tmp/wikiapiary-rendered.yaml

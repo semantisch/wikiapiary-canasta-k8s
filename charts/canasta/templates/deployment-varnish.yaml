@@ -1,0 +1,52 @@
+{{- if .Values.varnish.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "canasta.fullname" . }}-varnish
+  namespace: {{ include "canasta.namespace" . }}
+  labels:
+    {{- include "canasta.labels" . | nindent 4 }}
+    app.kubernetes.io/component: varnish
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "canasta.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: varnish
+  template:
+    metadata:
+      labels:
+        {{- include "canasta.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: varnish
+      annotations:
+        checksum/varnish-config: {{ .Values.configData.varnish | toJson | sha256sum }}
+    spec:
+      containers:
+        - name: varnish
+          image: {{ .Values.varnish.image }}
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          volumeMounts:
+            - name: varnish-config
+              mountPath: /etc/varnish/default.vcl
+              subPath: default.vcl
+              readOnly: true
+          {{- with .Values.varnish.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 30
+      volumes:
+        - name: varnish-config
+          configMap:
+            name: {{ include "canasta.fullname" . }}-varnish-config
+{{- end }}

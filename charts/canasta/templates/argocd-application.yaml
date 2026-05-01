@@ -1,0 +1,29 @@
+{{- if .Values.argocd.repoURL }}
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ include "canasta.fullname" . }}
+  namespace: {{ .Values.argocd.namespace }}
+  labels:
+    {{- include "canasta.labels" . | nindent 4 }}
+spec:
+  project: default
+  source:
+    repoURL: {{ .Values.argocd.repoURL }}
+    targetRevision: {{ .Values.argocd.targetRevision }}
+    path: .
+    helm:
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ include "canasta.namespace" . }}
+  syncPolicy:
+    {{- if .Values.argocd.syncPolicy.automated }}
+    automated:
+      selfHeal: {{ .Values.argocd.syncPolicy.selfHeal }}
+      prune: {{ .Values.argocd.syncPolicy.prune }}
+    {{- end }}
+    syncOptions:
+      - CreateNamespace=true
+{{- end }}

@@ -1,0 +1,162 @@
+{{- if not .Values.domains }}
+  {{- fail "At least one domain must be configured in values.yaml (domains: [example.com])" }}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "canasta.fullname" . }}-web
+  namespace: {{ include "canasta.namespace" . }}
+  labels:
+    {{- include "canasta.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  replicas: {{ .Values.web.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "canasta.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: web
+  template:
+    metadata:
+      labels:
+        {{- include "canasta.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: web
+      annotations:
+        checksum/web-config: {{ .Values.configData.web | toJson | sha256sum }}
+        checksum/env-config: {{ .Values.configData.env | default dict | toJson | sha256sum }}
+    spec:
+      initContainers:
+        - name: assemble-config
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              # Copy flat ConfigMap files into /config
+              cp /configmap-flat/.env /config/.env 2>/dev/null || true
+              cp /configmap-flat/wikis.yaml /config/wikis.yaml 2>/dev/null || true
+              cp /configmap-flat/composer.local.json /config/composer.local.json 2>/dev/null || true
+              # Reconstruct settings directory tree from double-dash-encoded keys
+              for f in /configmap-flat/settings--*; do
+                [ -f "$f" ] || continue
+                base=$(basename "$f")
+                # Convert settings--global--File.php to settings/global/File.php
+                relpath=$(echo "$base" | sed 's/--/\//g')
+                mkdir -p "/config/$(dirname "$relpath")"
+                cp "$f" "/config/$relpath"
+              done
+              echo "Config assembled"
+          volumeMounts:
+            - name: web-configmap
+              mountPath: /configmap-flat
+              readOnly: true
+            - name: config
+              mountPath: /config
+        - name: wait-for-db
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              until ip=$(nslookup db 2>/dev/null | awk '/^Address:/{ a=$2 } END{ print a }') && [ -n "$ip" ] && nc -z "$ip" 3306; do
+                sleep 2
+              done
+      containers:
+        - name: web
+          image: {{ include "canasta.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          # Runtime knobs from .env come via the envFrom ConfigMap.
+          # MW_SITE_SERVER, MW_SITE_FQDN, and CANASTA_ENABLE_VARNISH
+          # stay as hardcoded env: entries because they're sourced from
+          # values.yaml fields that also drive K8s resources (Ingress
+          # hostnames, Varnish deployment gate). config set updates
+          # both .env and values.yaml for these keys.
+          envFrom:
+            - configMapRef:
+                name: {{ include "canasta.fullname" . }}-env
+                optional: true
+          env:
+            {{- if .Values.domains }}
+            - name: MW_SITE_SERVER
+              value: "{{ ternary "http" "https" (eq (index .Values.domains 0) "localhost") }}://{{ index .Values.domains 0 }}"
+            - name: MW_SITE_FQDN
+              value: "{{ index .Values.domains 0 }}"
+            {{- end }}
+            - name: MYSQL_HOST
+              value: {{ if .Values.db.enabled }}"db"{{ else }}"{{ .Values.externalDatabase.host }}"{{ end }}
+            - name: MYSQL_PORT
+              value: {{ if .Values.db.enabled }}"3306"{{ else }}"{{ .Values.externalDatabase.port }}"{{ end }}
+            - name: MYSQL_USER
+              value: {{ if .Values.db.enabled }}"root"{{ else }}"{{ .Values.externalDatabase.user }}"{{ end }}
+            - name: MYSQL_SSL
+              value: {{ if .Values.db.enabled }}"false"{{ else }}"{{ .Values.externalDatabase.ssl }}"{{ end }}
+            - name: USE_EXTERNAL_DB
+              value: "{{ not .Values.db.enabled }}"
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "canasta.dbSecretName" . }}
+                  key: MYSQL_PASSWORD
+            - name: MW_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "canasta.mwSecretName" . }}
+                  key: MW_SECRET_KEY
+            - name: CANASTA_ENABLE_VARNISH
+              value: "{{ .Values.varnish.enabled }}"
+          volumeMounts:
+            - name: config
+              mountPath: /mediawiki/config
+            - name: images
+              mountPath: /mediawiki/images
+            - name: user-extensions
+              mountPath: /var/www/mediawiki/w/user-extensions
+            - name: user-skins
+              mountPath: /var/www/mediawiki/w/user-skins
+            - name: public-assets
+              mountPath: /mediawiki/public_assets
+          {{- with .Values.web.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          startupProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 3
+            timeoutSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+      volumes:
+        - name: web-configmap
+          configMap:
+            name: {{ include "canasta.fullname" . }}-web-config
+            optional: true
+        - name: config
+          emptyDir: {}
+        - name: images
+          persistentVolumeClaim:
+            claimName: {{ include "canasta.fullname" . }}-images
+        - name: user-extensions
+          persistentVolumeClaim:
+            claimName: {{ include "canasta.fullname" . }}-extensions
+        - name: user-skins
+          persistentVolumeClaim:
+            claimName: {{ include "canasta.fullname" . }}-skins
+        - name: public-assets
+          persistentVolumeClaim:
+            claimName: {{ include "canasta.fullname" . }}-public-assets

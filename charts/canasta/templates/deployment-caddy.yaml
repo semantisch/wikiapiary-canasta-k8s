@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "canasta.fullname" . }}-caddy
+  namespace: {{ include "canasta.namespace" . }}
+  labels:
+    {{- include "canasta.labels" . | nindent 4 }}
+    app.kubernetes.io/component: caddy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "canasta.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: caddy
+  template:
+    metadata:
+      labels:
+        {{- include "canasta.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: caddy
+      annotations:
+        checksum/caddy-config: {{ .Values.configData.caddy | toJson | sha256sum }}
+    spec:
+      containers:
+        - name: caddy
+          image: {{ .Values.caddy.image | default "caddy:2.10.2-alpine" }}
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+            - name: https
+              containerPort: 443
+              protocol: TCP
+          volumeMounts:
+            - name: caddy-config
+              mountPath: /etc/caddy/Caddyfile
+              subPath: Caddyfile
+              readOnly: true
+            - name: caddy-config
+              mountPath: /etc/caddy/Caddyfile.site
+              subPath: Caddyfile.site
+              readOnly: true
+            - name: caddy-config
+              mountPath: /etc/caddy/Caddyfile.global
+              subPath: Caddyfile.global
+              readOnly: true
+            - name: caddy-data
+              mountPath: /data
+          {{- with .Values.caddy.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 30
+      volumes:
+        - name: caddy-config
+          configMap:
+            name: {{ include "canasta.fullname" . }}-caddy-config
+        - name: caddy-data
+          emptyDir: {}

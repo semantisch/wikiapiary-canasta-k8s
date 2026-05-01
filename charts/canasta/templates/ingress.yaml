@@ -1,0 +1,52 @@
+{{- if .Values.ingress.enabled }}
+{{- $backendService := include "canasta.backendService" . }}
+{{- $fullname := include "canasta.fullname" . }}
+{{- $tlsHosts := dict }}
+{{- $ruleHosts := dict }}
+{{- range .Values.domains }}
+{{- $domain := regexReplaceAll ":[0-9]+$" (regexReplaceAll "/.*$" . "") "" }}
+{{- $_ := set $ruleHosts $domain true }}
+{{- if ne $domain "localhost" }}
+{{- $_ := set $tlsHosts $domain true }}
+{{- end }}
+{{- end }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullname }}
+  namespace: {{ include "canasta.namespace" . }}
+  labels:
+    {{- include "canasta.labels" . | nindent 4 }}
+  annotations:
+    {{- if .Values.ingress.certManager.enabled }}
+    cert-manager.io/cluster-issuer: {{ .Values.ingress.certManager.issuer }}
+    {{- end }}
+    {{- with .Values.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- if and .Values.ingress.tls (gt (len $tlsHosts) 0) }}
+  tls:
+    - hosts:
+        {{- range $domain, $_ := $tlsHosts }}
+        - {{ $domain }}
+        {{- end }}
+      secretName: {{ $fullname }}-tls
+  {{- end }}
+  rules:
+    {{- range $domain, $_ := $ruleHosts }}
+    - host: {{ $domain }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $backendService }}
+                port:
+                  name: http
+    {{- end }}
+{{- end }}

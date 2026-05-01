@@ -1,0 +1,26 @@
+{{- /*
+Environment variable ConfigMap for the web and jobrunner pods.
+
+Populated by k8s_sync_config.yml on the controller, which parses .env
+on the instance and extracts the subset of keys that should reach the
+pod's environment. Each entry becomes a single KEY=VALUE pair, which
+the pods consume via envFrom: configMapRef in their deployment templates.
+
+Deliberately kept separate from the web-config ConfigMap (which holds
+opaque file contents like wikis.yaml and settings/*) so that the envFrom
+semantics — one ConfigMap key = one environment variable — stay clean.
+*/}}
+{{- if .Values.configData.env }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "canasta.fullname" . }}-env
+  namespace: {{ include "canasta.namespace" . }}
+  labels:
+    {{- include "canasta.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+data:
+  {{- range $key, $value := .Values.configData.env }}
+  {{ $key }}: {{ $value | quote }}
+  {{- end }}
+{{- end }}

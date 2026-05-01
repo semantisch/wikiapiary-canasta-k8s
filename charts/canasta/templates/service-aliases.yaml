@@ -1,0 +1,114 @@
+{{/*
+Services matching Docker Compose service names.
+The Canasta container entrypoint, default VCL, and MediaWiki config
+reference services by their Compose names (caddy, db, web, varnish, elasticsearch).
+*/}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: caddy
+  namespace: {{ include "canasta.namespace" . }}
+  labels:
+    {{- include "canasta.labels" . | nindent 4 }}
+    app.kubernetes.io/component: caddy
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: http
+      protocol: TCP
+      name: http
+    - port: 443
+      targetPort: https
+      protocol: TCP
+      name: https
+  selector:
+    {{- include "canasta.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: caddy
+{{- if .Values.db.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+  namespace: {{ include "canasta.namespace" . }}
+  labels:
+    {{- include "canasta.labels" . | nindent 4 }}
+    app.kubernetes.io/component: db
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3306
+      targetPort: mysql
+      protocol: TCP
+      name: mysql
+  selector:
+    {{- include "canasta.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: db
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  namespace: {{ include "canasta.namespace" . }}
+  labels:
+    {{- include "canasta.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "canasta.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+---
+{{- if .Values.varnish.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: varnish
+  namespace: {{ include "canasta.namespace" . }}
+  labels:
+    {{- include "canasta.labels" . | nindent 4 }}
+    app.kubernetes.io/component: varnish
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "canasta.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: varnish
+{{- end }}
+---
+{{- if .Values.elasticsearch.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch
+  namespace: {{ include "canasta.namespace" . }}
+  labels:
+    {{- include "canasta.labels" . | nindent 4 }}
+    app.kubernetes.io/component: elasticsearch
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - port: 9200
+      targetPort: http
+      protocol: TCP
+      name: http
+    - port: 9300
+      targetPort: transport
+      protocol: TCP
+      name: transport
+  selector:
+    {{- include "canasta.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: elasticsearch
+{{- end }}
