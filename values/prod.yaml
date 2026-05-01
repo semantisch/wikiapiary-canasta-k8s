@@ -46,6 +46,9 @@ elasticsearch:
 jobrunner:
   enabled: true
 
+extensionOverrides:
+  enabled: true
+
 ingress:
   enabled: true
   className: nginx

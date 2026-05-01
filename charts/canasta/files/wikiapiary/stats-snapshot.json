@@ -1,0 +1,14 @@
+{
+  "extensions": [
+    { "Count": 93601, "Name": "ParserFunctions" },
+    { "Count": 93106, "Name": "WikiEditor" },
+    { "Count": 93089, "Name": "Cite" },
+    { "Count": 92932, "Name": "ConfirmEdit" },
+    { "Count": 92153, "Name": "SyntaxHighlight" },
+    { "Count": 92145, "Name": "Nuke" },
+    { "Count": 91735, "Name": "InputBox" },
+    { "Count": 91640, "Name": "ImageMap" },
+    { "Count": 91614, "Name": "CategoryTree" },
+    { "Count": 91289, "Name": "Poem" }
+  ]
+}

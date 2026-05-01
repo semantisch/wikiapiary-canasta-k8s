@@ -149,6 +149,9 @@ configData:
   varnish: {}   # default.vcl
   db: {}        # my.cnf
 
+extensionOverrides:
+  enabled: false
+
 # Argo CD
 argocd:
   namespace: argocd

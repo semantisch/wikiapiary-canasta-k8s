@@ -23,6 +23,7 @@ spec:
       annotations:
         checksum/web-config: {{ .Values.configData.web | toJson | sha256sum }}
         checksum/env-config: {{ .Values.configData.env | default dict | toJson | sha256sum }}
+        checksum/extension-overrides: {{ ternary (printf "%s%s" (.Files.Get "files/wikiapiary/Stats.php") (.Files.Get "files/wikiapiary/stats-snapshot.json") | sha256sum) "" .Values.extensionOverrides.enabled }}
     spec:
       {{- with .Values.nodeSelector }}
       nodeSelector:
@@ -118,6 +119,14 @@ spec:
               mountPath: /mediawiki/images
             - name: user-extensions
               mountPath: /var/www/mediawiki/w/user-extensions
+            {{- if .Values.extensionOverrides.enabled }}
+            - name: extension-overrides
+              mountPath: /var/www/mediawiki/w/user-extensions/WikiApiary/includes/data/query/Stats.php
+              subPath: Stats.php
+            - name: extension-overrides
+              mountPath: /var/www/mediawiki/w/user-extensions/WikiApiary/includes/data/query/stats-snapshot.json
+              subPath: stats-snapshot.json
+            {{- end }}
             - name: user-skins
               mountPath: /var/www/mediawiki/w/user-skins
             - name: public-assets
@@ -158,6 +167,11 @@ spec:
         - name: user-extensions
           persistentVolumeClaim:
             claimName: {{ include "canasta.fullname" . }}-extensions
+        {{- if .Values.extensionOverrides.enabled }}
+        - name: extension-overrides
+          configMap:
+            name: {{ include "canasta.fullname" . }}-extension-overrides
+        {{- end }}
         - name: user-skins
           persistentVolumeClaim:
             claimName: {{ include "canasta.fullname" . }}-skins

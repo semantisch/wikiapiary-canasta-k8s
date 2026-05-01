@@ -1,0 +1,14 @@
+{{- if .Values.extensionOverrides.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "canasta.fullname" . }}-extension-overrides
+  namespace: {{ include "canasta.namespace" . }}
+  labels:
+    {{- include "canasta.labels" . | nindent 4 }}
+data:
+  Stats.php: |
+{{ .Files.Get "files/wikiapiary/Stats.php" | indent 4 }}
+  stats-snapshot.json: |
+{{ .Files.Get "files/wikiapiary/stats-snapshot.json" | indent 4 }}
+{{- end }}
