@@ -228,7 +228,6 @@ configData:
         - SimpleMathJax
         - SkinPerPage
         - SmiteSpam
-        - SocialProfile
         - SpamBlacklist
         - SubPageList
         - SyntaxHighlight_GeSHi
