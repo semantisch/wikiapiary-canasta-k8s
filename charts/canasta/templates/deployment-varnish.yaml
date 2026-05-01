@@ -21,6 +21,10 @@ spec:
       annotations:
         checksum/varnish-config: {{ .Values.configData.varnish | toJson | sha256sum }}
     spec:
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: varnish
           image: {{ .Values.varnish.image }}

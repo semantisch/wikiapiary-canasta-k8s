@@ -9,6 +9,9 @@ image:
 domains:
   - wikiapiary.dobriy.ai
 
+nodeSelector:
+  kubernetes.io/hostname: dobriyai-hosting-1
+
 web:
   replicaCount: 1
   resources:

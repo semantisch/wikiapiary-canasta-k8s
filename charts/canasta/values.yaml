@@ -15,6 +15,9 @@ image:
 domains:
   - localhost
 
+# Pod placement
+nodeSelector: {}
+
 # Web tier
 web:
   replicaCount: 1

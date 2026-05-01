@@ -20,6 +20,10 @@ spec:
         {{- include "canasta.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: elasticsearch
     spec:
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: elasticsearch
           image: {{ .Values.elasticsearch.image }}
