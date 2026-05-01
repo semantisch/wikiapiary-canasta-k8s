@@ -101,7 +101,7 @@ configData:
     settings--global--Search.php: |
       <?php
       $wgSearchType = "CirrusSearch";
-      $wgCirrusSearchServers = [ "elasticsearch:9200" ];
+      $wgCirrusSearchServers = [ "elasticsearch" ];
     settings--global--settings.yaml: |
       extensions:
         - AJAXPoll
