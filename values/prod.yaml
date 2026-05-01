@@ -219,11 +219,11 @@ configData:
         - SaveSpinner
         - Scribunto
         - SecureLinkFixer
+        - SemanticMediaWiki
         - SemanticCompoundQueries
         - SemanticDependencyUpdater
         - SemanticDrilldown
         - SemanticExtraSpecialProperties
-        - SemanticMediaWiki
         - SemanticResultFormats
         - SemanticScribunto
         - SemanticWatchlist
