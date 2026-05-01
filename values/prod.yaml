@@ -98,6 +98,12 @@ configData:
         - id: main
           url: wikiapiary.dobriy.ai
           name: WikiApiary
+    settings--global--Vector.php: |
+      <?php
+      // Override Canasta's Vector default for this deployment.
+      // The installed skin key here is "vector", not "vector-2022".
+      $wgDefaultSkin = "vector";
+      wfLoadSkin( 'Vector' );
   env:
     CADDY_AUTO_HTTPS: "off"
     PHP_UPLOAD_MAX_FILESIZE: "50M"
