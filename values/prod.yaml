@@ -103,6 +103,64 @@ configData:
       <?php
       $wgSearchType = "CirrusSearch";
       $wgCirrusSearchServers = [ "elasticsearch" ];
+    settings--global--01Namespaces.php: |
+      <?php
+      define( "NS_WIKI", 3800 );
+      define( "NS_WIKI_TALK", 3801 );
+      $wgExtraNamespaces[NS_WIKI] = "Wiki";
+      $wgExtraNamespaces[NS_WIKI_TALK] = "Wiki_talk";
+      $wgContentNamespaces[] = NS_WIKI;
+      $wgNamespacesToBeSearchedDefault[NS_WIKI] = true;
+
+      define( "NS_EXTENSION", 3802 );
+      define( "NS_EXTENSION_TALK", 3803 );
+      $wgExtraNamespaces[NS_EXTENSION] = "Extension";
+      $wgExtraNamespaces[NS_EXTENSION_TALK] = "Extension_talk";
+      $wgContentNamespaces[] = NS_EXTENSION;
+      $wgNamespacesToBeSearchedDefault[NS_EXTENSION] = true;
+
+      define( "NS_SKIN", 3804 );
+      define( "NS_SKIN_TALK", 3805 );
+      $wgExtraNamespaces[NS_SKIN] = "Skin";
+      $wgExtraNamespaces[NS_SKIN_TALK] = "Skin_talk";
+      $wgContentNamespaces[] = NS_SKIN;
+      $wgNamespacesToBeSearchedDefault[NS_SKIN] = true;
+    settings--global--02WikiApiarySite.php: |
+      <?php
+      $wgAllowExternalImages = true;
+      $wgScribuntoDefaultEngine = 'luastandalone';
+      $wgScribuntoUseGeSHi = true;
+      $wgScribuntoUseCodeEditor = true;
+      $wgHeaderTabsUseHistory = false;
+      $wgHeaderTabsRenderSingleTab = true;
+      $wgHeaderTabsEditTabLink = false;
+    settings--global--03Permissions.php: |
+      <?php
+      $wgGroupPermissions['*']['edit'] = false;
+      $wgGroupPermissions['*']['createaccount'] = false;
+      $wgGroupPermissions['bot']['noratelimit'] = true;
+      $wgGroupPermissions['bot']['delete'] = true;
+    settings--global--04Branding.php: |
+      <?php
+      $wgLogos = [
+          '1x' => "/images/wikiapiary-assets/WikiApiary_Bee.png",
+          'icon' => "/images/wikiapiary-assets/WikiApiary_Bee.png",
+      ];
+      $wgFavicon = "/images/wikiapiary-assets/favicon.ico";
+
+      $myWikiApiaryURL = "https://wikiapiary.dobriy.ai";
+      $wgFooterIcons['monitoredby']['wikiapiary'] = [
+          'src' => "/images/wikiapiary-assets/Monitored_by_WikiApiary.png",
+          'url' => "$myWikiApiaryURL?pk_campaign=FooterIcon&pk_kwd=wikiapiary",
+          'alt' => "Monitored by WikiApiary",
+      ];
+    settings--global--05WikiApiary.php: |
+      <?php
+      wfLoadExtension( 'WikiApiary' );
+    settings--global--90Chameleon.php: |
+      <?php
+      $wgDefaultSkin = "chameleon";
+      $egChameleonLayoutFile = $IP . '/skins/chameleon/layouts/fixedhead.xml';
     settings--global--settings.yaml: |
       extensions:
         - AJAXPoll
@@ -275,12 +333,6 @@ configData:
         - Timeless
         - Vector
         - chameleon
-    settings--global--Vector.php: |
-      <?php
-      // Override Canasta's Vector default for this deployment.
-      // The installed skin key here is "vector", not "vector-2022".
-      $wgDefaultSkin = "vector";
-      wfLoadSkin( 'Vector' );
   env:
     CADDY_AUTO_HTTPS: "off"
     PHP_UPLOAD_MAX_FILESIZE: "50M"
