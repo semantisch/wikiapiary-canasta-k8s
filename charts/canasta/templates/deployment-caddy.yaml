@@ -49,6 +49,9 @@ spec:
               readOnly: true
             - name: caddy-data
               mountPath: /data
+            - name: images
+              mountPath: /srv/wiki-images
+              readOnly: true
           {{- with .Values.caddy.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
@@ -67,3 +70,6 @@ spec:
             name: {{ include "canasta.fullname" . }}-caddy-config
         - name: caddy-data
           emptyDir: {}
+        - name: images
+          persistentVolumeClaim:
+            claimName: {{ include "canasta.fullname" . }}-images

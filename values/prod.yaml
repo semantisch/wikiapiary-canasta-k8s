@@ -146,14 +146,14 @@ configData:
     settings--global--04Branding.php: |
       <?php
       $wgLogos = [
-          '1x' => "/images/wikiapiary-assets/WikiApiary_Bee.png",
-          'icon' => "/images/wikiapiary-assets/WikiApiary_Bee.png",
+          '1x' => "/w/resources/assets/WikiApiary_Bee.png",
+          'icon' => "/w/resources/assets/WikiApiary_Bee.png",
       ];
-      $wgFavicon = "/images/wikiapiary-assets/favicon.ico";
+      $wgFavicon = "/w/resources/assets/favicon.ico";
 
       $myWikiApiaryURL = "https://wikiapiary.dobriy.ai";
       $wgFooterIcons['monitoredby']['wikiapiary'] = [
-          'src' => "/images/wikiapiary-assets/Monitored_by_WikiApiary.png",
+          'src' => "/w/resources/assets/Monitored_by_WikiApiary.png",
           'url' => "$myWikiApiaryURL?pk_campaign=FooterIcon&pk_kwd=wikiapiary",
           'alt' => "Monitored by WikiApiary",
       ];
@@ -357,7 +357,17 @@ configData:
           }
       }
     Caddyfile.site: |
-      # Site-level Caddy configuration for WikiApiary.
+      @wikiapiary_resource_assets path /w/resources/assets/WikiApiary_Bee.png /w/resources/assets/favicon.ico /w/resources/assets/Monitored_by_WikiApiary.png /w/resources/assets/wmf-cloud.png
+      handle @wikiapiary_resource_assets {
+          root * /srv/wiki-images/wikiapiary-assets
+          uri strip_prefix /w/resources/assets
+          file_server
+      }
+
+      handle_path /images/wikiapiary-assets/* {
+          root * /srv/wiki-images/wikiapiary-assets
+          file_server
+      }
     Caddyfile.global: |
       # Global Caddy configuration for WikiApiary.
 
