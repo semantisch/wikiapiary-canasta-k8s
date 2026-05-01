@@ -27,7 +27,10 @@ spec:
       containers:
         - name: elasticsearch
           image: {{ .Values.elasticsearch.image }}
+          command:
+            - /usr/local/bin/docker-entrypoint.sh
           args:
+            - eswrapper
             - -Ediscovery.type=single-node
             - -Expack.ml.enabled=false
           ports:
