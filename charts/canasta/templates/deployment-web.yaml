@@ -132,7 +132,7 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 5
             timeoutSeconds: 5
-            failureThreshold: 360
+            failureThreshold: 1440
           readinessProbe:
             tcpSocket:
               port: http
