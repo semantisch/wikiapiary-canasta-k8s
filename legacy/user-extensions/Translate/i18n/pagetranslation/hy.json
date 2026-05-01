@@ -1,0 +1,23 @@
+{
+	"@metadata": {
+		"authors": [
+			"Kareyac",
+			"Դավիթ Սարոյան",
+			"Սերգեյ Սաֆարյան"
+		]
+	},
+	"pagetranslation": "Էջերի թարգմանություն",
+	"tps-edit-sourcepage-ve-warning-button": "Լավ",
+	"tpt-diff-old": "Նախորդ տեքստը",
+	"tpt-diff-new": "Նոր տեքստը",
+	"tpt-languages-nonzero": "$1 ($2% թարգմանված)",
+	"tpt-aggregategroup-add": "Ավելացնել",
+	"tpt-aggregategroup-close": "Փակել",
+	"tpt-aggregategroup-update-cancel": "Չեղարկել",
+	"pt-deletepage-reason-other": "Ուրիշ պատճառ",
+	"pt-deletepage-list-no-pages": "Ոչ մի էջ չի գտնվել։",
+	"pm-cancel-button-label": "Չեղարկել",
+	"pp-save-button-label": "Հրապարակել",
+	"pp-cancel-button-label": "Չեղարկել",
+	"tpt-generic-button": "Հաստատել"
+}

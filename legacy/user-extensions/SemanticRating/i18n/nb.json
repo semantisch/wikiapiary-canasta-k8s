@@ -1,0 +1,9 @@
+{
+	"@metadata": {
+		"authors": [
+			"Jon Harald Søby"
+		]
+	},
+	"semanticrating-desc": "Lar brukere vurdere elementer med stjerner",
+	"semanticrating-max": "Maksimalt antall stjerner i en rangering"
+}

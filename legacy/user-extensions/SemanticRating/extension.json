@@ -1,0 +1,46 @@
+{
+	"name": "Semantic Rating",
+	"version": "4.0.1",
+	"author": [
+		"[https://www.mediawiki.org/wiki/User:Cindy.cicalese Cindy Cicalese]",
+		"..."
+	],
+	"url": "https://www.mediawiki.org/wiki/Extension:Semantic_Rating",
+	"descriptionmsg": "semanticrating-desc",
+	"license-name": "MIT",
+	"type": "semantic",
+	"requires": {
+		"MediaWiki": ">= 1.31.0"
+	},
+	"MessagesDirs": {
+		"SemanticRating": [
+			"i18n"
+		]
+	},
+	"ExtensionMessagesFiles": {
+		"SemanticRatingMagic": "SemanticRating.i18n.magic.php"
+	},
+	"AutoloadClasses": {
+		"SemanticRating": "SemanticRating.php",
+		"SemanticRatingHtmlRenderer": "SemanticRatingHtmlRenderer.php"
+	},
+	"ResourceModules": {
+		"ext.SemanticRating": {
+			"scripts": "SemanticRating.js"
+		}
+	},
+	"ResourceFileModulePaths": {
+		"localBasePath": "",
+		"remoteExtPath": "SemanticRating"
+	},
+	"Hooks": {
+		"ParserFirstCallInit": [
+			"SemanticRating::setup"
+		]
+	},
+	"manifest_version": 1,
+	"config": {
+		"SemanticRating_CSSSelector": "#firstHeading",
+		"SemanticRating_DefaultMax": 5
+	}
+}

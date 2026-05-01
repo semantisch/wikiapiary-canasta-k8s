@@ -1,0 +1,9 @@
+{
+	"@metadata": {
+		"authors": [
+			"BaRaN6161 TURK"
+		]
+	},
+	"semanticrating-desc": "Kullanıcıların yıldızları yıldızlarla derecelendirmesine izin verir",
+	"semanticrating-max": "Bir derecelendirmedeki maksimum yıldız sayısı"
+}

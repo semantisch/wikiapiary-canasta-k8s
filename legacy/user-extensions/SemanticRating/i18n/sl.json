@@ -1,0 +1,9 @@
+{
+	"@metadata": {
+		"authors": [
+			"Eleassar"
+		]
+	},
+	"semanticrating-desc": "Uporabnikom omogoča ocenjevanje predmetov z zvezdicami",
+	"semanticrating-max": "Največje število zvezdic v oceni"
+}

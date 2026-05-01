@@ -1,0 +1,15 @@
+FROM ghcr.io/canastawiki/canasta:3.5.2
+
+# Bake the legacy production visual layer into the standard Canasta image.
+# The missing legacy extensions are copied into the built-in extension tree so
+# MediaWiki can load them via the normal Canasta settings.yaml flow.
+COPY legacy/foreground/ /var/www/mediawiki/w/skins/foreground/
+COPY legacy/user-extensions/CSS/ /var/www/mediawiki/w/extensions/CSS/
+COPY legacy/user-extensions/SemanticRating/ /var/www/mediawiki/w/extensions/SemanticRating/
+COPY legacy/user-extensions/Translate/ /var/www/mediawiki/w/extensions/Translate/
+
+RUN chown -R www-data:www-data \
+    /var/www/mediawiki/w/skins/foreground \
+    /var/www/mediawiki/w/extensions/CSS \
+    /var/www/mediawiki/w/extensions/SemanticRating \
+    /var/www/mediawiki/w/extensions/Translate

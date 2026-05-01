@@ -2,52 +2,65 @@ instance:
   id: wikiapiary
 
 image:
-  repository: ghcr.io/canastawiki/canasta
-  tag: "3.5.2"
+  repository: wikiapiary-legacy
+  tag: "20260501-foreground"
   pullPolicy: IfNotPresent
 
 domains:
   - wikiapiary.dobriy.ai
 
 nodeSelector:
-  kubernetes.io/hostname: dobriyai-hosting-1
+  kubernetes.io/hostname: dobriyai-hosting-2
 
 web:
   replicaCount: 1
   resources:
     requests:
-      cpu: 250m
-      memory: 512Mi
-    limits:
-      cpu: 1000m
+      cpu: 500m
       memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 3Gi
 
 caddy:
   resources:
     requests:
-      cpu: 50m
-      memory: 64Mi
-    limits:
-      cpu: 200m
+      cpu: 100m
       memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
 
 varnish:
   enabled: true
 
 db:
   enabled: true
-  storage: 20Gi
+  storage: 220Gi
   storageClass: local-path
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2Gi
+    limits:
+      cpu: 4000m
+      memory: 8Gi
 
 elasticsearch:
-  enabled: true
-  image: docker.elastic.co/elasticsearch/elasticsearch:7.10.2
+  enabled: false
 
 jobrunner:
   enabled: true
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
 
 extensionOverrides:
-  enabled: true
+  enabled: false
 
 ingress:
   enabled: true
@@ -60,7 +73,7 @@ ingress:
 
 persistence:
   images:
-    size: 20Gi
+    size: 10Gi
     storageClass: local-path
     accessMode: ReadWriteOnce
   extensions:
@@ -68,11 +81,11 @@ persistence:
     storageClass: local-path
     accessMode: ReadWriteOnce
   skins:
-    size: 2Gi
+    size: 1Gi
     storageClass: local-path
     accessMode: ReadWriteOnce
   publicAssets:
-    size: 2Gi
+    size: 1Gi
     storageClass: local-path
     accessMode: ReadWriteOnce
 
@@ -89,10 +102,10 @@ configData:
       MW_SITE_SERVER=https://wikiapiary.dobriy.ai
       MW_SITE_FQDN=wikiapiary.dobriy.ai
       CADDY_AUTO_HTTPS=off
-      PHP_UPLOAD_MAX_FILESIZE=50M
-      PHP_POST_MAX_SIZE=50M
-      PHP_MAX_INPUT_VARS=1000
-      CANASTA_ENABLE_ELASTICSEARCH=true
+      PHP_UPLOAD_MAX_FILESIZE=100M
+      PHP_POST_MAX_SIZE=100M
+      PHP_MAX_INPUT_VARS=2000
+      CANASTA_ENABLE_ELASTICSEARCH=false
       CANASTA_ENABLE_VARNISH=true
       CANASTA_ENABLE_WIKI_DIRECTORY=false
       MW_SITEMAP_PAUSE_DAYS=1
@@ -102,250 +115,304 @@ configData:
         - id: main
           url: wikiapiary.dobriy.ai
           name: WikiApiary
-    settings--global--Search.php: |
+    settings--global--00LegacySite.php: |
       <?php
-      $wgSearchType = "CirrusSearch";
-      $wgCirrusSearchServers = [ "elasticsearch" ];
+      $wgSitename = "WikiApiary";
+      $wgUsePathInfo = true;
+      $wgScriptPath = "/w";
+      $wgArticlePath = "/wiki/$1";
+      $wgServer = "https://wikiapiary.dobriy.ai";
+      $wgLogos = [
+          '1x' => "/w/images/wikiapiary/thumb/5/5e/WikiApiary_Bee.png/128px-WikiApiary_Bee.png",
+          'icon' => "/w/images/wikiapiary/thumb/5/5e/WikiApiary_Bee.png/128px-WikiApiary_Bee.png",
+      ];
+      $wgFavicon = "/w/images/wikiapiary/5/5e/WikiApiary_Bee.png";
+      $wgEnableEmail = true;
+      $wgEnableUserEmail = true;
+      $wgEmergencyContact = "admin@wikiapiary.com";
+      $wgPasswordSender = "admin@wikiapiary.com";
+      $wgEnotifUserTalk = true;
+      $wgEnotifWatchlist = true;
+      $wgEmailAuthentication = true;
+      $wgEmailConfirmToEdit = true;
+      $wgDBname = "mw_wikiapiary";
+      $wgDBuser = "mw_wikiapiary";
+      $wgDBpassword = getenv( 'MYSQL_PASSWORD' ) ?: '';
+      $wgDBTableOptions = "ENGINE=InnoDB, DEFAULT CHARSET=binary";
+      $wgEnableUploads = true;
+      $wgUploadDirectory = "{$IP}/images/wikiapiary";
+      $wgUploadPath = "/w/images/wikiapiary";
+      $wgUseImageMagick = true;
+      $wgImageMagickConvertCommand = "/usr/bin/convert";
+      $wgUseInstantCommons = false;
+      $wgFileExtensions = array_merge( $wgFileExtensions, [
+          'svg',
+          'doc',
+          'docx',
+          'xls',
+          'xlsx',
+          'ppt',
+          'pptx',
+          'mp4',
+          'gz',
+          'pdf',
+          'zip',
+      ] );
+      $wgGroupPermissions['autoconfirmed']['upload_by_url'] = true;
+      $wgAllowCopyUploads = true;
+      $wgLanguageCode = "en";
+      $wgLocaltimezone = "UTC";
+      $wgRightsPage = "";
+      $wgRightsUrl = "http://creativecommons.org/licenses/by-sa/3.0/";
+      $wgRightsText = "Creative Commons Attribution Share Alike";
+      $wgRightsIcon = "/w/resources/assets/licenses/cc-by-sa.png";
+      $wgCookiePrefix = "wikiapiary";
+      $wgAllowUserCss = true;
+      $wgAllowUserJs = true;
+      $wgAllowSiteCSSOnRestrictedPages = true;
+      $wgMiserMode = true;
+      $wgEnableSidebarCache = true;
+      $wgMainCacheType = CACHE_ACCEL;
+      $wgSessionCacheType = CACHE_ACCEL;
+      $wgSessionsInObjectCache = false;
+      $wgEnableParserCache = true;
+      $wgParserCacheExpireTime = 60 * 60 * 24 * 3;
+      $wgMinimalPasswordLength = 8;
+      $wgJobRunRate = 0;
+      $wgMaxShellMemory = 524288;
+      $wgRequestTimeLimit = 300;
+      $wgCompressRevisions = true;
     settings--global--01Namespaces.php: |
       <?php
-      define( "NS_WIKI", 3800 );
-      define( "NS_WIKI_TALK", 3801 );
-      $wgExtraNamespaces[NS_WIKI] = "Wiki";
-      $wgExtraNamespaces[NS_WIKI_TALK] = "Wiki_talk";
-      $wgContentNamespaces[] = NS_WIKI;
-      $wgNamespacesToBeSearchedDefault[NS_WIKI] = true;
-
-      define( "NS_EXTENSION", 3802 );
-      define( "NS_EXTENSION_TALK", 3803 );
+      define( "NS_EXTENSION", 800 );
+      define( "NS_EXTENSION_TALK", 801 );
       $wgExtraNamespaces[NS_EXTENSION] = "Extension";
       $wgExtraNamespaces[NS_EXTENSION_TALK] = "Extension_talk";
       $wgContentNamespaces[] = NS_EXTENSION;
       $wgNamespacesToBeSearchedDefault[NS_EXTENSION] = true;
 
-      define( "NS_SKIN", 3804 );
-      define( "NS_SKIN_TALK", 3805 );
+      define( "NS_FARM", 802 );
+      define( "NS_FARM_TALK", 803 );
+      $wgExtraNamespaces[NS_FARM] = "Farm";
+      $wgExtraNamespaces[NS_FARM_TALK] = "Farm_talk";
+      $wgContentNamespaces[] = NS_FARM;
+      $wgNamespacesToBeSearchedDefault[NS_FARM] = true;
+      $wgNamespacesWithSubpages[NS_FARM] = true;
+
+      define( "NS_SKIN", 804 );
+      define( "NS_SKIN_TALK", 805 );
       $wgExtraNamespaces[NS_SKIN] = "Skin";
       $wgExtraNamespaces[NS_SKIN_TALK] = "Skin_talk";
       $wgContentNamespaces[] = NS_SKIN;
       $wgNamespacesToBeSearchedDefault[NS_SKIN] = true;
-    settings--global--02WikiApiarySite.php: |
-      <?php
-      $wgAllowExternalImages = true;
-      $wgScribuntoDefaultEngine = 'luastandalone';
-      $wgScribuntoUseGeSHi = true;
-      $wgScribuntoUseCodeEditor = true;
-      $wgHeaderTabsUseHistory = false;
-      $wgHeaderTabsRenderSingleTab = true;
-      $wgHeaderTabsEditTabLink = false;
-    settings--global--03Permissions.php: |
+
+      define( "NS_GENERATOR", 808 );
+      define( "NS_GENERATOR_TALK", 809 );
+      $wgExtraNamespaces[NS_GENERATOR] = "Generator";
+      $wgExtraNamespaces[NS_GENERATOR_TALK] = "Generator_talk";
+      $wgContentNamespaces[] = NS_GENERATOR;
+      $wgNamespacesToBeSearchedDefault[NS_GENERATOR] = true;
+      $wgNamespacesWithSubpages[NS_GENERATOR] = true;
+
+      define( "NS_HOST", 810 );
+      define( "NS_HOST_TALK", 811 );
+      $wgExtraNamespaces[NS_HOST] = "Host";
+      $wgExtraNamespaces[NS_HOST_TALK] = "Host_talk";
+      $wgContentNamespaces[] = NS_HOST;
+      $wgNamespacesToBeSearchedDefault[NS_HOST] = true;
+      $wgNamespacesWithSubpages[NS_HOST] = true;
+
+      define( "NS_LIBRARY", 812 );
+      define( "NS_LIBRARY_TALK", 813 );
+      $wgExtraNamespaces[NS_LIBRARY] = "Library";
+      $wgExtraNamespaces[NS_LIBRARY_TALK] = "Library_talk";
+      $wgContentNamespaces[] = NS_LIBRARY;
+      $wgNamespacesToBeSearchedDefault[NS_LIBRARY] = true;
+      $wgNamespacesWithSubpages[NS_LIBRARY] = true;
+
+      $wgNamespacesWithSubpages[NS_MAIN] = true;
+      $wgNamespacesWithSubpages[NS_PROJECT] = true;
+      $wgNamespacesWithSubpages[NS_TEMPLATE] = true;
+    settings--global--02Permissions.php: |
       <?php
       $wgGroupPermissions['*']['edit'] = false;
       $wgGroupPermissions['*']['createaccount'] = false;
       $wgGroupPermissions['bot']['noratelimit'] = true;
       $wgGroupPermissions['bot']['delete'] = true;
-    settings--global--04Branding.php: |
+      $wgRestrictionLevels[] = 'editors';
+      $wgRestrictionLevels[] = 'operators';
+      $wgGroupPermissions['user']['move'] = false;
+      $wgGroupPermissions['trusted-users']['autopatrol'] = true;
+      $wgGroupPermissions['trusted-users']['autoconfirmed'] = true;
+      $wgGroupPermissions['trusted-users']['skipcaptcha'] = true;
+      $wgGroupPermissions['editors']['autopatrol'] = true;
+      $wgGroupPermissions['editors']['autoconfirmed'] = true;
+      $wgGroupPermissions['editors']['skipcaptcha'] = true;
+      $wgGroupPermissions['editors']['editors'] = true;
+      $wgGroupPermissions['editors']['delete'] = true;
+      $wgGroupPermissions['editors']['move'] = true;
+      $wgGroupPermissions['editors']['suppressredirect'] = true;
+      $wgGroupPermissions['operators']['autopatrol'] = true;
+      $wgGroupPermissions['operators']['operators'] = true;
+      $wgGroupPermissions['operators']['suppressredirect'] = true;
+      $wgGroupPermissions['sysop']['editors'] = true;
+      $wgGroupPermissions['sysop']['operators'] = true;
+    settings--global--03Foreground.php: |
       <?php
-      $wgLogos = [
-          '1x' => "/w/resources/assets/WikiApiary_Bee.png",
-          'icon' => "/w/resources/assets/WikiApiary_Bee.png",
+      $wgDefaultSkin = "foreground";
+      $wgForegroundFeatures = [
+          'navbarIcon' => true,
+          'showActionsForAnon' => true,
+          'NavWrapperType' => 'divonly',
+          'showHelpUnderTools' => true,
+          'showRecentChangesUnderTools' => true,
+          'IeEdgeCode' => 1,
+          'showFooterIcons' => true,
       ];
-      $wgFavicon = "/w/resources/assets/favicon.ico";
-
-      $myWikiApiaryURL = "https://wikiapiary.dobriy.ai";
-      $wgFooterIcons['monitoredby']['wikiapiary'] = [
-          'src' => "/w/resources/assets/Monitored_by_WikiApiary.png",
-          'url' => "$myWikiApiaryURL?pk_campaign=FooterIcon&pk_kwd=wikiapiary",
-          'alt' => "Monitored by WikiApiary",
-      ];
-    settings--global--05WikiApiary.php: |
-      <?php
-      wfLoadExtension( 'WikiApiary' );
-    settings--global--90Chameleon.php: |
-      <?php
-      $wgDefaultSkin = "chameleon";
       $egChameleonLayoutFile = $IP . '/skins/chameleon/layouts/fixedhead.xml';
+    settings--global--04LegacyExtensions.php: |
+      <?php
+      $wgPFEnableStringFunctions = true;
+      $wgScribuntoGatherFunctionStats = true;
+      $wgScribuntoEngineConf['luasandbox']['cpuLimit'] = 30;
+      $wgScribuntoUseGeSHi = true;
+      $wgScribuntoUseCodeEditor = true;
+      $wgPdfProcessor = 'gs';
+      $wgPdfPostProcessor = $wgImageMagickConvertCommand;
+      $wgPdfInfo = 'pdfinfo';
+      wfLoadExtension( 'ConfirmEdit/QuestyCaptcha' );
+      $wgCaptchaQuestions = [
+          'What plant is the (old) MediaWiki logo supposed to be?' => [ 'Sunflower', 'a sunflower' ],
+          'What programming language does Scribunto allow you to use in templates?' => [ 'Lua' ],
+          'If you include wikicode like {{foo}} what page is included?' => [ 'Template:Foo' ],
+          'What is the name of the special page that shows the latest changes on a wiki?' => [ 'Special:Recentchanges', 'Recentchanges', 'Recent changes' ],
+          'What is the name of the online encyclopedia that made wikis famous?' => [ 'Wikipedia', 'english Wikipedia' ],
+          'What sound does a cow make?' => [ 'Moo', 'Moo!' ],
+          'What sound does a cat make?' => [ 'hiss', 'Meow', 'Meow!' ],
+      ];
+      $wgGroupPermissions['emailconfirmed']['skipcaptcha'] = true;
+      $ceAllowConfirmedEmail = true;
+      $wgGroupPermissions['sysop']['editwidgets'] = true;
+      $wgGroupPermissions['translator']['translate'] = true;
+      $wgGroupPermissions['user']['translate'] = true;
+      $wgGroupPermissions['user']['translate-messagereview'] = true;
+      $wgGroupPermissions['user']['translate-groupreview'] = true;
+      $wgGroupPermissions['user']['translate-import'] = true;
+      $wgGroupPermissions['sysop']['pagetranslation'] = true;
+      $wgGroupPermissions['sysop']['translate-manage'] = true;
+      $wgTranslateDocumentationLanguageCode = 'qqq';
+      $wgExtraLanguageNames['qqq'] = 'Message documentation';
+      $wgTranslateFuzzyBotName = 'Fuzzy Bee';
+      $edgDBServer['apiary'] = "localhost";
+      $edgDBServerType['apiary'] = "mysql";
+      $edgDBName['apiary'] = "apiary";
+      $edgDBUser['apiary'] = "apiary";
+      $edgDBPass['apiary'] = getenv( 'MYSQL_PASSWORD' ) ?: '';
+      enableSemantics( 'wikiapiary.dobriy.ai' );
+      $smwgCheckForConstraintErrors = SMW_CONSTRAINT_ERR_CHECK_NONE;
+      $smwgQEqualitySupport = SMW_EQ_NONE;
+      $smwgNamespacesWithSemanticLinks[NS_EXTENSION] = true;
+      $smwgNamespacesWithSemanticLinks[NS_FARM] = true;
+      $smwgNamespacesWithSemanticLinks[NS_SKIN] = true;
+      $smwgNamespacesWithSemanticLinks[NS_GENERATOR] = true;
+      $smwgNamespacesWithSemanticLinks[NS_HOST] = true;
+      $smwgNamespacesWithSemanticLinks[NS_LIBRARY] = true;
+      $smwgPageSpecialProperties[] = '_CDAT';
+      $smwgPageSpecialProperties[] = '_LEDT';
+      $smwgQUpperbound = 30000;
+      $smwgQMaxLimit = 30000;
+      $smwgQMaxSize = 24;
+      $smwgQMaxDepth = 16;
+      $smwgQConceptMaxSize = 20;
+      $smwgQConceptMaxDepth = 8;
+      $smwgQueryProfiler = [
+          'smwgQueryDurationEnabled' => true,
+      ];
+      $smwgQueryResultCacheType = CACHE_ACCEL;
+      $smwgQueryResultCacheLifetime = 60 * 60 * 24;
+      $srfgArraySep = "\n";
+      $srfgArrayPropSep = ',';
+      $sespSpecialProperties = [
+          '_PAGEID',
+          '_CUSER',
+          '_EUSER',
+          '_NREV',
+          '_TNREV',
+          '_SUBP',
+          '_USERREG',
+      ];
+      $sespUseAsFixedTables = true;
+      $wgSESPExcludeBots = true;
+      $wgPageFormsRenameMainEditTab = true;
+      $wgPageFormsAutoCreateUser = 'Bumble Bee';
+      $htRenderSingleTab = true;
+      $htEditTabLink = false;
+    settings--global--05Footer.php: |
+      <?php
+      $myWikiApiaryURL = "https://wikiapiary.dobriy.ai/wiki/WikiApiary";
+      $wgFooterIcons['monitoredby']['wikiapiary'] = [
+          'src' => '/w/images/wikiapiary/b/b4/Monitored_by_WikiApiary.png',
+          'url' => "$myWikiApiaryURL?pk_campaign=FooterIcon&pk_kwd=wikiapiary",
+          'alt' => 'Monitored by WikiApiary',
+      ];
+      $wgFooterIcons['servedby']['mariadb'] = [
+          'src' => '/mariadb-badge-88x31.png',
+          'url' => 'https://mariadb.org',
+          'alt' => 'Powered by MariaDB',
+      ];
+      $wgFooterIcons['poweredby']['semanticmediawiki'] = [
+          'src' => '/smw-logo.png',
+          'url' => 'https://www.semantic-mediawiki.org/wiki/Semantic_MediaWiki',
+          'alt' => 'Powered by Semantic MediaWiki',
+          'class' => 'smw-footer',
+      ];
+      $wgFooterIcons['servedby']['wmfcloud'] = [
+          'src' => '/wmf-cloud.png',
+          'url' => 'https://wikitech.wikimedia.org/wiki/Help:Cloud_Services_Introduction',
+          'alt' => 'Served by Wikimedia Cloud Services',
+      ];
     settings--global--settings.yaml: |
       extensions:
-        - AJAXPoll
-        - AWS
-        - AbuseFilter
-        - AdminLinks
-        - AdvancedSearch
-        - AntiSpoof
-        - ApprovedRevs
-        - Arrays
-        - Babel
-        - BetaFeatures
         - Bootstrap
-        - BootstrapComponents
-        - BreadCrumbs2
-        - Cargo
-        - CategoryTree
-        - CharInsert
-        - CheckUser
-        - CirrusSearch
-        - Cite
-        - CiteThisPage
-        - CodeEditor
-        - CodeMirror
-        - Collection
-        - CommentStreams
-        - CommonsMetadata
-        - ConfirmAccount
-        - ConfirmEdit
-        - ContactPage
-        - ContributionScores
-        - CookieWarning
-        - CreateRedirect
-        - DataTransfer
-        - DeleteBatch
-        - Description2
-        - Disambiguator
-        - DiscussionTools
-        - DismissableSiteNotice
-        - DisplayTitle
-        - Echo
-        - EditAccount
-        - Editcount
-        - Elastica
-        - EmailAuthorization
-        - EmbedVideo
-        - EventLogging
-        - EventStreamConfig
-        - ExternalData
-        - FlexDiagrams
-        - GTag
-        - Gadgets
-        - GlobalNotice
-        - GoogleAnalyticsMetrics
-        - GoogleDocCreator
-        - HTMLTags
-        - HeaderFooter
-        - HeaderTabs
-        - ImageMap
-        - InlineComments
-        - InputBox
-        - Interwiki
-        - JWTAuth
-        - LDAPAuthentication2
-        - LDAPAuthorization
-        - LDAPProvider
-        - LabeledSectionTransclusion
-        - Lingo
-        - LinkSuggest
-        - LinkTarget
-        - Linter
-        - LockAuthor
-        - Lockdown
-        - LoginNotify
-        - LookupUser
-        - Loops
-        - MagicNoCache
-        - Maps
-        - MassMessage
-        - MassMessageEmail
-        - Math
-        - MediaUploader
-        - Mermaid
-        - MintyDocs
-        - MobileFrontend
-        - MsUpload
-        - MultimediaViewer
-        - MyVariables
-        - NewUserMessage
-        - Nuke
-        - NumerAlpha
-        - OATHAuth
-        - OAuth
-        - OpenGraphMeta
-        - OpenIDConnect
-        - PageExchange
-        - PageForms
-        - PageImages
-        - PageSchemas
         - ParserFunctions
-        - PdfHandler
-        - PluggableAuth
-        - Poem
-        - Popups
-        - QuickInstantCommons
-        - RSS
-        - RandomSelection
-        - RegexFunctions
-        - RegularTooltips
-        - RelatedArticles
-        - ReplaceText
-        - RevisionSlider
-        - RottenLinks
-        - SandboxLink
-        - SaveSpinner
-        - Scribunto
-        - SecureLinkFixer
-        - SemanticMediaWiki
-        - SemanticCompoundQueries
-        - SemanticDependencyUpdater
-        - SemanticDrilldown
-        - SemanticExtraSpecialProperties
-        - SemanticResultFormats
-        - SemanticScribunto
-        - SemanticWatchlist
-        - SimpleBatchUpload
-        - SimpleChanges
-        - SimpleMathJax
-        - SkinPerPage
-        - SmiteSpam
-        - SpamBlacklist
-        - SubPageList
-        - SyntaxHighlight_GeSHi
-        - TemplateData
-        - TemplateSandbox
-        - TemplateStyles
-        - TemplateStylesExtender
-        - TemplateWizard
-        - TextExtracts
-        - Thanks
-        - TimedMediaHandler
-        - TitleBlacklist
-        - TitleIcon
-        - TwoColConflict
-        - UniversalLanguageSelector
-        - UrlGetParameters
-        - UserFunctions
-        - UserMerge
-        - UserPageViewTracker
-        - VEForAll
-        - Variables
-        - VariablesLua
-        - VisualEditor
-        - VoteNY
-        - WSOAuth
-        - WatchAnalytics
-        - WhoIsWatching
-        - WhosOnline
-        - Widgets
         - WikiEditor
-        - WikiSEO
-        - cldr
+        - CodeEditor
+        - SyntaxHighlight_GeSHi
+        - Scribunto
+        - PdfHandler
+        - ConfirmEdit
+        - SpamBlacklist
+        - Gadgets
+        - Widgets
+        - UniversalLanguageSelector
+        - Babel
+        - Translate
+        - Arrays
+        - Variables
+        - MyVariables
+        - CSS
+        - Disambiguator
+        - MagicNoCache
+        - ExternalData
+        - SemanticMediaWiki
+        - SemanticResultFormats
+        - SemanticExtraSpecialProperties
+        - SemanticScribunto
+        - SemanticRating
+        - PageForms
+        - HeaderTabs
       skins:
-        - CologneBlue
-        - MinervaNeue
-        - Modern
-        - MonoBook
-        - Pivot
-        - Refreshed
-        - Timeless
-        - Vector
+        - foreground
         - chameleon
   env:
     CADDY_AUTO_HTTPS: "off"
-    PHP_UPLOAD_MAX_FILESIZE: "50M"
-    PHP_POST_MAX_SIZE: "50M"
-    PHP_MAX_INPUT_VARS: "1000"
-    CANASTA_ENABLE_ELASTICSEARCH: "true"
+    PHP_UPLOAD_MAX_FILESIZE: "100M"
+    PHP_POST_MAX_SIZE: "100M"
+    PHP_MAX_INPUT_VARS: "2000"
+    CANASTA_ENABLE_ELASTICSEARCH: "false"
     MW_SITEMAP_PAUSE_DAYS: "1"
   caddy:
     Caddyfile: |
-      # Auto-generated for the hosting cluster GitOps deployment.
       import /etc/caddy/Caddyfile.global
 
       http://wikiapiary.dobriy.ai {
@@ -357,14 +424,8 @@ configData:
           }
       }
     Caddyfile.site: |
-      @wikiapiary_resource_assets path /w/resources/assets/WikiApiary_Bee.png /w/resources/assets/favicon.ico /w/resources/assets/Monitored_by_WikiApiary.png /w/resources/assets/wmf-cloud.png
-      handle @wikiapiary_resource_assets {
-          root * /srv/wiki-images/wikiapiary-assets
-          uri strip_prefix /w/resources/assets
-          file_server
-      }
-
-      handle_path /images/wikiapiary-assets/* {
+      @legacy_root_assets path /wmf-cloud.png /mariadb-badge-88x31.png /smw-logo.png
+      handle @legacy_root_assets {
           root * /srv/wiki-images/wikiapiary-assets
           file_server
       }

@@ -1,0 +1,9 @@
+{
+	"@metadata": {
+		"authors": [
+			"Jaroslav Cerny"
+		]
+	},
+	"semanticrating-desc": "Umožňuje uživatelům hodnotit položky pomocí hvězdiček",
+	"semanticrating-max": "Maximální počet hvězdiček v hodnocení"
+}

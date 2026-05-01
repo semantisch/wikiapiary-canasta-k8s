@@ -1,0 +1,10 @@
+{
+	"@metadata": {
+		"authors": [
+			"Elisardojm",
+			"Toliño"
+		]
+	},
+	"semanticrating-desc": "Permite aos usuarios avaliar os elementos con estrelas",
+	"semanticrating-max": "Número máximo de estrelas nunha clasificación"
+}

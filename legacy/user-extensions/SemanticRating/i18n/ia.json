@@ -1,0 +1,9 @@
+{
+	"@metadata": {
+		"authors": [
+			"McDutchie"
+		]
+	},
+	"semanticrating-desc": "Permitte al usatores de evalutar cosas con stellas",
+	"semanticrating-max": "Le numero maxime de stellas in un evalutation"
+}
