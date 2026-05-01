@@ -40,7 +40,7 @@ db:
   storageClass: local-path
 
 elasticsearch:
-  enabled: false
+  enabled: true
 
 jobrunner:
   enabled: true
@@ -88,7 +88,7 @@ configData:
       PHP_UPLOAD_MAX_FILESIZE=50M
       PHP_POST_MAX_SIZE=50M
       PHP_MAX_INPUT_VARS=1000
-      CANASTA_ENABLE_ELASTICSEARCH=false
+      CANASTA_ENABLE_ELASTICSEARCH=true
       CANASTA_ENABLE_VARNISH=true
       CANASTA_ENABLE_WIKI_DIRECTORY=false
       MW_SITEMAP_PAUSE_DAYS=1
@@ -98,6 +98,180 @@ configData:
         - id: main
           url: wikiapiary.dobriy.ai
           name: WikiApiary
+    settings--global--settings.yaml: |
+      extensions:
+        - AJAXPoll
+        - AWS
+        - AbuseFilter
+        - AdminLinks
+        - AdvancedSearch
+        - AntiSpoof
+        - ApprovedRevs
+        - Arrays
+        - Babel
+        - BetaFeatures
+        - Bootstrap
+        - BootstrapComponents
+        - BreadCrumbs2
+        - Cargo
+        - CategoryTree
+        - CharInsert
+        - CheckUser
+        - CirrusSearch
+        - Cite
+        - CiteThisPage
+        - CodeEditor
+        - CodeMirror
+        - Collection
+        - CommentStreams
+        - CommonsMetadata
+        - ConfirmAccount
+        - ConfirmEdit
+        - ContactPage
+        - ContributionScores
+        - CookieWarning
+        - CreateRedirect
+        - DataTransfer
+        - DeleteBatch
+        - Description2
+        - Disambiguator
+        - DiscussionTools
+        - DismissableSiteNotice
+        - DisplayTitle
+        - Echo
+        - EditAccount
+        - Editcount
+        - Elastica
+        - EmailAuthorization
+        - EmbedVideo
+        - EventLogging
+        - EventStreamConfig
+        - ExternalData
+        - FlexDiagrams
+        - GTag
+        - Gadgets
+        - GlobalNotice
+        - GoogleAnalyticsMetrics
+        - GoogleDocCreator
+        - HTMLTags
+        - HeaderFooter
+        - HeaderTabs
+        - ImageMap
+        - InlineComments
+        - InputBox
+        - Interwiki
+        - JWTAuth
+        - LDAPAuthentication2
+        - LDAPAuthorization
+        - LDAPProvider
+        - LabeledSectionTransclusion
+        - Lingo
+        - LinkSuggest
+        - LinkTarget
+        - Linter
+        - LockAuthor
+        - Lockdown
+        - LoginNotify
+        - LookupUser
+        - Loops
+        - MagicNoCache
+        - Maps
+        - MassMessage
+        - MassMessageEmail
+        - Math
+        - MediaUploader
+        - Mermaid
+        - MintyDocs
+        - MobileFrontend
+        - MsUpload
+        - MultimediaViewer
+        - MyVariables
+        - NewUserMessage
+        - Nuke
+        - NumerAlpha
+        - OATHAuth
+        - OAuth
+        - OpenGraphMeta
+        - OpenIDConnect
+        - PageExchange
+        - PageForms
+        - PageImages
+        - PageSchemas
+        - ParserFunctions
+        - PdfHandler
+        - PluggableAuth
+        - Poem
+        - Popups
+        - QuickInstantCommons
+        - RSS
+        - RandomSelection
+        - RegexFunctions
+        - RegularTooltips
+        - RelatedArticles
+        - ReplaceText
+        - RevisionSlider
+        - RottenLinks
+        - SandboxLink
+        - SaveSpinner
+        - Scribunto
+        - SecureLinkFixer
+        - SemanticCompoundQueries
+        - SemanticDependencyUpdater
+        - SemanticDrilldown
+        - SemanticExtraSpecialProperties
+        - SemanticMediaWiki
+        - SemanticResultFormats
+        - SemanticScribunto
+        - SemanticWatchlist
+        - SimpleBatchUpload
+        - SimpleChanges
+        - SimpleMathJax
+        - SkinPerPage
+        - SmiteSpam
+        - SocialProfile
+        - SpamBlacklist
+        - SubPageList
+        - SyntaxHighlight_GeSHi
+        - TemplateData
+        - TemplateSandbox
+        - TemplateStyles
+        - TemplateStylesExtender
+        - TemplateWizard
+        - TextExtracts
+        - Thanks
+        - TimedMediaHandler
+        - TitleBlacklist
+        - TitleIcon
+        - TwoColConflict
+        - UniversalLanguageSelector
+        - UploadWizard
+        - UrlGetParameters
+        - UserFunctions
+        - UserMerge
+        - UserPageViewTracker
+        - VEForAll
+        - Variables
+        - VariablesLua
+        - VisualEditor
+        - VoteNY
+        - WSOAuth
+        - WatchAnalytics
+        - WhoIsWatching
+        - WhosOnline
+        - Widgets
+        - WikiEditor
+        - WikiSEO
+        - cldr
+      skins:
+        - CologneBlue
+        - MinervaNeue
+        - Modern
+        - MonoBook
+        - Pivot
+        - Refreshed
+        - Timeless
+        - Vector
+        - chameleon
     settings--global--Vector.php: |
       <?php
       // Override Canasta's Vector default for this deployment.
@@ -109,7 +283,7 @@ configData:
     PHP_UPLOAD_MAX_FILESIZE: "50M"
     PHP_POST_MAX_SIZE: "50M"
     PHP_MAX_INPUT_VARS: "1000"
-    CANASTA_ENABLE_ELASTICSEARCH: "false"
+    CANASTA_ENABLE_ELASTICSEARCH: "true"
     MW_SITEMAP_PAUSE_DAYS: "1"
   caddy:
     Caddyfile: |
