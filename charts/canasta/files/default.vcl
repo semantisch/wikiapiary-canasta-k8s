@@ -88,6 +88,12 @@ sub vcl_recv {
         return (pass);
     } /* We only deal with GET and HEAD by default */
 
+    # Translated main-page subpages are language-specific by URL already, so
+    # keeping Accept-Language in the cache key only creates needless variants.
+    if (req.url ~ "^/wiki/Main_Page/[A-Za-z0-9-]+$") {
+        unset req.http.Accept-Language;
+    }
+
     # Force lookup if the request is a no-cache request from the client.
     if (req.http.Cache-Control ~ "no-cache") {
         ban(req.url);
@@ -174,6 +180,15 @@ sub vcl_backend_response {
           return (deliver);
         }
 
+        if (bereq.url ~ "^/wiki/Main_Page/[A-Za-z0-9-]+$" && beresp.http.Vary) {
+          set beresp.http.Vary = regsub(beresp.http.Vary, "^Accept-Language,? ?", "");
+          set beresp.http.Vary = regsub(beresp.http.Vary, ", ?Accept-Language$", "");
+          set beresp.http.Vary = regsuball(beresp.http.Vary, ", ?Accept-Language, ?", ", ");
+          if (beresp.http.Vary == "") {
+            unset beresp.http.Vary;
+          }
+        }
+
         # Keep normal wiki pages around much longer at the proxy layer.
         # Freshness still comes from explicit purges on edit, so a longer TTL
         # helps hot landing/report pages stay warm instead of going cold again.
@@ -200,6 +215,15 @@ sub vcl_deliver {
             set resp.http.Vary = regsub(resp.http.Vary, "^Cookie,? ?", "");
             set resp.http.Vary = regsub(resp.http.Vary, ", ?Cookie$", "");
             set resp.http.Vary = regsuball(resp.http.Vary, ", ?Cookie, ?", ", ");
+            if (resp.http.Vary == "") {
+                unset resp.http.Vary;
+            }
+        }
+
+        if (req.url ~ "^/wiki/Main_Page/[A-Za-z0-9-]+$" && resp.http.Vary) {
+            set resp.http.Vary = regsub(resp.http.Vary, "^Accept-Language,? ?", "");
+            set resp.http.Vary = regsub(resp.http.Vary, ", ?Accept-Language$", "");
+            set resp.http.Vary = regsuball(resp.http.Vary, ", ?Accept-Language, ?", ", ");
             if (resp.http.Vary == "") {
                 unset resp.http.Vary;
             }
