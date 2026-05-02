@@ -124,7 +124,7 @@ data:
 
         if ($html !== '') {
             foreach ([
-                '/<ul id="top-bar-left".*?<\/ul>/s',
+                '/<div id=[\'"]navwrapper[\'"].*?<\/nav>/s',
                 '/<div id="mw-content-text".*?<\/div>\s*<\/div>/s'
             ] as $pattern) {
                 if (!preg_match($pattern, $html, $match)) {
@@ -154,6 +154,48 @@ data:
                 if (preg_match('/(::|[<>{}\[\]])/', $target)) {
                     continue;
                 }
+                $url = wiki_path_from_title($target);
+                if (eligible_warm_path($url)) {
+                    $urls[] = $url;
+                }
+            }
+        }
+
+        $initial = array_values(array_unique($urls));
+        foreach ($initial as $seedUrl) {
+            $seedTitle = rawurldecode(substr($seedUrl, strlen('/wiki/')));
+            $seedRaw = fetch_text($siteServer . $seedUrl . '?action=raw', $timeout);
+            if ($seedRaw === '' || !preg_match_all('/\[\[(.+?)(\|.+?)?\]\]/', $seedRaw, $wikilinks)) {
+                continue;
+            }
+            foreach ($wikilinks[1] as $target) {
+                $target = preg_replace('/^<tvar\|[^>]+>/', '', $target);
+                $target = preg_replace('/<\/?>/', '', $target);
+                $target = trim($target);
+                if ($target === '' || strpos($target, '#') === 0) {
+                    continue;
+                }
+                if (strpos($target, 'Special:MyLanguage/') === 0) {
+                    $target = substr($target, strlen('Special:MyLanguage/'));
+                }
+                if (preg_match('/(::|[<>{}\[\]])/', $target)) {
+                    continue;
+                }
+
+                $isRelated = false;
+                if (strpos($target, $seedTitle . '/') === 0 || strpos($target, $seedTitle . ' ') === 0) {
+                    $isRelated = true;
+                } elseif (strpos($seedTitle, ':') !== false) {
+                    $seedNamespace = strstr($seedTitle, ':', true) . ':';
+                    if (strpos($target, $seedNamespace) === 0) {
+                        $isRelated = true;
+                    }
+                }
+
+                if (!$isRelated) {
+                    continue;
+                }
+
                 $url = wiki_path_from_title($target);
                 if (eligible_warm_path($url)) {
                     $urls[] = $url;
