@@ -28,15 +28,31 @@ spec:
       containers:
         - name: varnish
           image: {{ .Values.varnish.image }}
+          env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
           ports:
             - name: http
               containerPort: 80
               protocol: TCP
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - |
+                    mkdir -p /warm-cache
+                    printf '{"stamp":"%s-startup","podIp":"%s"}\n' "$(date +%s)" "${POD_IP}" > /warm-cache/varnish-startup.stamp
           volumeMounts:
             - name: varnish-config
               mountPath: /etc/varnish/default.vcl
               subPath: default.vcl
               readOnly: true
+            - name: cache-warm
+              mountPath: /warm-cache
           {{- with .Values.varnish.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
@@ -53,4 +69,7 @@ spec:
         - name: varnish-config
           configMap:
             name: {{ include "canasta.fullname" . }}-varnish-config
+        - name: cache-warm
+          persistentVolumeClaim:
+            claimName: {{ include "canasta.fullname" . }}-cache-warm
 {{- end }}

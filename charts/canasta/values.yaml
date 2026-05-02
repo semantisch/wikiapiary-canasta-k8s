@@ -68,6 +68,7 @@ redis:
 # Cache warmer
 cacheWarmer:
   enabled: false
+  workerEnabled: false
   image: ""
   discoverSchedule: "*/20 * * * *"
   warmSchedule: "*/5 * * * *"
@@ -79,7 +80,11 @@ cacheWarmer:
   semanticSetLimit: 200
   recentChangesLimit: 25
   warmPagesLimit: 120
+  queuePollSeconds: 5
+  queueBatchSize: 60
+  tier1RefreshSeconds: 900
   requestTimeoutSeconds: 15
+  uncacheableTtlSeconds: 86400
   resources:
     requests:
       cpu: 50m

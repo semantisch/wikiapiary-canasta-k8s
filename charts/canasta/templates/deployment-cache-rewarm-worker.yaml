@@ -1,0 +1,68 @@
+{{- if and .Values.cacheWarmer.enabled .Values.cacheWarmer.workerEnabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "canasta.fullname" . }}-cache-rewarm-worker
+  namespace: {{ include "canasta.namespace" . }}
+  labels:
+    {{- include "canasta.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cache-rewarm-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "canasta.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: cache-rewarm-worker
+  template:
+    metadata:
+      labels:
+        {{- include "canasta.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: cache-rewarm-worker
+      annotations:
+        checksum/cache-warmer: {{ include (print $.Template.BasePath "/configmap-cache-warmer.yaml") . | sha256sum }}
+    spec:
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: cache-rewarm-worker
+          image: {{ .Values.cacheWarmer.image | default (include "canasta.image" .) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/bin/sh", "/scripts/run-worker.sh"]
+          env:
+            - name: SITE_SERVER
+              value: "https://{{ index .Values.domains 0 }}"
+            - name: SITE_HOST
+              value: "{{ index .Values.domains 0 }}"
+            - name: WARM_CACHE_DIR
+              value: /warm-cache
+            - name: QUEUE_POLL_SECONDS
+              value: "{{ .Values.cacheWarmer.queuePollSeconds }}"
+            - name: QUEUE_BATCH_SIZE
+              value: "{{ .Values.cacheWarmer.queueBatchSize }}"
+            - name: TIER1_REFRESH_SECONDS
+              value: "{{ .Values.cacheWarmer.tier1RefreshSeconds }}"
+            - name: REQUEST_TIMEOUT_SECONDS
+              value: "{{ .Values.cacheWarmer.requestTimeoutSeconds }}"
+            - name: UNCACHEABLE_TTL_SECONDS
+              value: "{{ .Values.cacheWarmer.uncacheableTtlSeconds }}"
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+            - name: cache-warm
+              mountPath: /warm-cache
+          {{- with .Values.cacheWarmer.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: scripts
+          configMap:
+            name: {{ include "canasta.fullname" . }}-cache-warmer
+            defaultMode: 0755
+        - name: cache-warm
+          persistentVolumeClaim:
+            claimName: {{ include "canasta.fullname" . }}-cache-warm
+{{- end }}

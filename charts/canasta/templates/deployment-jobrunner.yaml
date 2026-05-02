@@ -97,6 +97,8 @@ spec:
                 secretKeyRef:
                   name: {{ include "canasta.dbSecretName" . }}
                   key: MYSQL_PASSWORD
+            - name: MW_WARM_CACHE_DIR
+              value: /warm-cache
             - name: MW_SECRET_KEY
               valueFrom:
                 secretKeyRef:
@@ -112,6 +114,8 @@ spec:
               mountPath: /mediawiki/images
             - name: cache
               mountPath: /mediawiki/cache
+            - name: cache-warm
+              mountPath: /warm-cache
           {{- with .Values.jobrunner.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
@@ -128,4 +132,7 @@ spec:
             claimName: {{ include "canasta.fullname" . }}-images
         - name: cache
           emptyDir: {}
+        - name: cache-warm
+          persistentVolumeClaim:
+            claimName: {{ include "canasta.fullname" . }}-cache-warm
 {{- end }}

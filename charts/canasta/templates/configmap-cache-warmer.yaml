@@ -396,11 +396,13 @@ data:
     $translationFile = $baseDir . '/translation-pages.json';
     $reportFile = $baseDir . '/warm-run.json';
     $warmStateFile = $baseDir . '/warm-state.json';
+    $uncacheableFile = $baseDir . '/uncacheable-pages.json';
     $siteServer = rtrim(getenv('SITE_SERVER') ?: 'https://wikiapiary.dobriy.ai', '/');
     $recentChangesLimit = max(5, (int)(getenv('RECENT_CHANGES_LIMIT') ?: 25));
     $largestBatchSize = max(1, (int)(getenv('LARGEST_BATCH_SIZE') ?: 20));
     $warmPagesLimit = max(5, (int)(getenv('WARM_PAGES_LIMIT') ?: 30));
     $requestTimeout = max(3, (int)(getenv('REQUEST_TIMEOUT_SECONDS') ?: 15));
+    $uncacheableTtl = max(300, (int)(getenv('UNCACHEABLE_TTL_SECONDS') ?: 86400));
 
     function load_json($path, $default) {
         if (!is_file($path)) {
@@ -517,6 +519,15 @@ data:
     $largestPages = load_json($largestFile, ['pages' => []])['pages'] ?? [];
     $semanticPages = load_json($semanticFile, ['pages' => []])['pages'] ?? [];
     $warmState = load_json($warmStateFile, []);
+    $uncacheableMap = load_json($uncacheableFile, ['pages' => []])['pages'] ?? [];
+    $now = time();
+    foreach ($uncacheableMap as $path => $until) {
+        if (!is_numeric($until) || (int)$until <= $now) {
+            unset($uncacheableMap[$path]);
+        } else {
+            $uncacheableMap[$path] = (int)$until;
+        }
+    }
 
     $recentChanges = fetch_json(
         $siteServer . '/w/api.php?action=query&list=recentchanges&rcnamespace=0&rclimit=' . $recentChangesLimit . '&rcprop=title|ids|timestamp&format=json',
@@ -548,10 +559,15 @@ data:
         'largestOffset' => $largestOffset
     ]);
 
+    $tier1Pages = ['/wiki/Main_Page', '/wiki/Websites', '/wiki/Websites/WikiTeam'];
+    $tier1Pages = array_values(array_unique(array_merge($tier1Pages, $translationPages)));
+    $tier2Pages = array_values(array_unique(array_merge($changedPages, $hotPages)));
+    $tier3Pages = array_values(array_unique(array_merge($semanticPages, $seedPages, $largestBatch)));
+
     $ordered = [];
-    foreach ([$changedPages, $hotPages, $translationPages, $semanticPages, $seedPages, $largestBatch] as $group) {
+    foreach ([$tier1Pages, $tier2Pages, $tier3Pages] as $group) {
         foreach ($group as $url) {
-            if (!isset($ordered[$url]) && eligible_warm_path($url)) {
+            if (!isset($ordered[$url]) && eligible_warm_path($url) && !isset($uncacheableMap[$url])) {
                 $ordered[$url] = true;
             }
         }
@@ -561,6 +577,12 @@ data:
     $results = [];
     foreach ($targets as $path) {
         $refresh = request_url($siteServer . $path, $requestTimeout);
+        $cacheControl = strtolower((string)($refresh['cacheControl'] ?? ''));
+        if (($refresh['status'] ?? 0) === 404) {
+            $uncacheableMap[$path] = time() + $uncacheableTtl;
+        } elseif ($cacheControl !== '' && (strpos($cacheControl, 'no-store') !== false || strpos($cacheControl, 'private') !== false)) {
+            $uncacheableMap[$path] = time() + $uncacheableTtl;
+        }
         $results[] = [
             'url' => $siteServer . $path,
             'path' => $path,
@@ -576,10 +598,17 @@ data:
     atomic_write_json($reportFile, [
         'generatedAt' => gmdate('c'),
         'largestBatchOffsetNext' => $largestOffset,
+        'tier1Pages' => $tier1Pages,
+        'tier2Pages' => $tier2Pages,
+        'tier3Pages' => $tier3Pages,
         'largestBatch' => $largestBatch,
         'translationPages' => $translationPages,
         'targets' => $targets,
         'results' => $results
+    ]);
+    atomic_write_json($uncacheableFile, [
+        'generatedAt' => gmdate('c'),
+        'pages' => $uncacheableMap
     ]);
 
     $ok = 0;
@@ -597,4 +626,352 @@ data:
     #!/bin/sh
     set -eu
     php /scripts/warm.php
+  worker.php: |
+    <?php
+    error_reporting(E_ALL);
+    date_default_timezone_set('UTC');
+
+    $baseDir = getenv('WARM_CACHE_DIR') ?: '/warm-cache';
+    $siteHost = getenv('SITE_HOST') ?: parse_url($siteServer, PHP_URL_HOST);
+    $priorityQueueFile = $baseDir . '/rewarm-priority.ndjson';
+    $queueFile = $baseDir . '/rewarm-queue.ndjson';
+    $largestFile = $baseDir . '/largest-pages.json';
+    $translationFile = $baseDir . '/translation-pages.json';
+    $uncacheableFile = $baseDir . '/uncacheable-pages.json';
+    $workerStateFile = $baseDir . '/rewarm-worker-state.json';
+    $startupStampFile = $baseDir . '/varnish-startup.stamp';
+    $siteServer = rtrim(getenv('SITE_SERVER') ?: 'https://wikiapiary.dobriy.ai', '/');
+    $pollSeconds = max(3, (int)(getenv('QUEUE_POLL_SECONDS') ?: 10));
+    $queueBatchSize = max(5, (int)(getenv('QUEUE_BATCH_SIZE') ?: 60));
+    $requestTimeout = max(3, (int)(getenv('REQUEST_TIMEOUT_SECONDS') ?: 15));
+    $tier1RefreshSeconds = max(60, (int)(getenv('TIER1_REFRESH_SECONDS') ?: 900));
+    $uncacheableTtl = max(300, (int)(getenv('UNCACHEABLE_TTL_SECONDS') ?: 86400));
+
+    @mkdir($baseDir, 0775, true);
+
+    function load_json($path, $default) {
+        if (!is_file($path)) {
+            return $default;
+        }
+        $data = json_decode((string)file_get_contents($path), true);
+        return is_array($data) ? $data : $default;
+    }
+
+    function atomic_write_json($path, $data) {
+        $tmp = $path . '.tmp';
+        file_put_contents($tmp, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        rename($tmp, $path);
+    }
+
+    function eligible_warm_path($url) {
+        if (!is_string($url) || strpos($url, '/wiki/') !== 0) {
+            return false;
+        }
+        if (preg_match('#^/wiki/Special:#', $url)) {
+            return false;
+        }
+        foreach (['/wiki/Template:', '/wiki/Module:', '/wiki/User:', '/wiki/Talk:', '/wiki/File:'] as $blocked) {
+            if (strpos($url, $blocked) === 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function parse_response_headers($headers) {
+        $parsed = [];
+        foreach ($headers as $header) {
+            $pos = strpos($header, ':');
+            if ($pos === false) {
+                continue;
+            }
+            $name = strtolower(trim(substr($header, 0, $pos)));
+            $value = trim(substr($header, $pos + 1));
+            $parsed[$name][] = $value;
+        }
+        return $parsed;
+    }
+
+    function request_url($fullUrl, $timeout, array $extraHeaders = []) {
+        $ctx = stream_context_create([
+            'http' => [
+                'method' => 'GET',
+                'timeout' => $timeout,
+                'ignore_errors' => true,
+                'header' => implode("\r\n", array_merge([
+                    'User-Agent: WikiApiaryRewarmWorker/1.0',
+                    'Accept: text/html,application/xhtml+xml',
+                    'Accept-Language: en'
+                ], $extraHeaders))
+            ],
+            'ssl' => [
+                'verify_peer' => false,
+                'verify_peer_name' => false
+            ]
+        ]);
+        $start = microtime(true);
+        $body = @file_get_contents($fullUrl, false, $ctx);
+        $elapsed = microtime(true) - $start;
+        $status = 0;
+        if (isset($http_response_header[0]) && preg_match('#\s(\d{3})\s#', $http_response_header[0], $m)) {
+            $status = (int)$m[1];
+        }
+        $headers = parse_response_headers($http_response_header ?? []);
+        $age = null;
+        if (!empty($headers['age'][0]) && ctype_digit((string)$headers['age'][0])) {
+            $age = (int)$headers['age'][0];
+        }
+        return [
+            'url' => $fullUrl,
+            'status' => $status,
+            'ok' => $body !== false && $status >= 200 && $status < 400,
+            'seconds' => round($elapsed, 3),
+            'age' => $age,
+            'via' => $headers['via'] ?? [],
+            'cacheControl' => $headers['cache-control'][0] ?? null,
+            'cache' => $headers['x-wikiapiary-cache'][0] ?? null,
+        ];
+    }
+
+    function append_queue_items($queueFile, array $entries, $reason) {
+        if (!$entries) {
+            return 0;
+        }
+        $fp = fopen($queueFile, 'c+');
+        if (!$fp) {
+            return 0;
+        }
+        flock($fp, LOCK_EX);
+        fseek($fp, 0, SEEK_END);
+        $written = 0;
+        foreach ($entries as $entry) {
+            $path = '';
+            $attempt = 0;
+            $baseUrl = null;
+            $hostHeader = null;
+            if (is_string($entry)) {
+                $path = $entry;
+            } elseif (is_array($entry) && !empty($entry['path']) && is_string($entry['path'])) {
+                $path = $entry['path'];
+                $attempt = max(0, (int)($entry['attempt'] ?? 0));
+                $baseUrl = !empty($entry['baseUrl']) && is_string($entry['baseUrl']) ? rtrim($entry['baseUrl'], '/') : null;
+                $hostHeader = !empty($entry['hostHeader']) && is_string($entry['hostHeader']) ? $entry['hostHeader'] : null;
+            }
+            if (!eligible_warm_path($path)) {
+                continue;
+            }
+            $payload = [
+                'path' => $path,
+                'reason' => $reason,
+                'attempt' => $attempt,
+                'ts' => gmdate('c')
+            ];
+            if ($baseUrl) {
+                $payload['baseUrl'] = $baseUrl;
+            }
+            if ($hostHeader) {
+                $payload['hostHeader'] = $hostHeader;
+            }
+            fwrite($fp, json_encode($payload, JSON_UNESCAPED_SLASHES) . "\n");
+            $written++;
+        }
+        fflush($fp);
+        flock($fp, LOCK_UN);
+        fclose($fp);
+        return $written;
+    }
+
+    function drain_queue($queueFile, $limit) {
+        $fp = fopen($queueFile, 'c+');
+        if (!$fp) {
+            return [];
+        }
+        flock($fp, LOCK_EX);
+        rewind($fp);
+        $lines = stream_get_contents($fp);
+        $entries = preg_split('/\r?\n/', trim((string)$lines));
+        $items = [];
+        $rest = [];
+        foreach ($entries as $line) {
+            if ($line === '') {
+                continue;
+            }
+            $entry = json_decode($line, true);
+            if (!is_array($entry) || empty($entry['path']) || !eligible_warm_path($entry['path'])) {
+                continue;
+            }
+            if (count($items) < $limit) {
+                $items[] = $entry;
+            } else {
+                $rest[] = $line;
+            }
+        }
+        ftruncate($fp, 0);
+        rewind($fp);
+        if ($rest) {
+            fwrite($fp, implode("\n", $rest) . "\n");
+        }
+        fflush($fp);
+        flock($fp, LOCK_UN);
+        fclose($fp);
+        return $items;
+    }
+
+    function tier1_core_pages($baseDir) {
+        $translationPages = load_json($baseDir . '/translation-pages.json', ['pages' => []])['pages'] ?? [];
+        $pages = array_merge(
+            ['/wiki/Main_Page', '/wiki/Websites', '/wiki/Websites/WikiTeam'],
+            $translationPages
+        );
+        $unique = [];
+        foreach ($pages as $path) {
+            if (eligible_warm_path($path) && !isset($unique[$path])) {
+                $unique[$path] = true;
+            }
+        }
+        return array_keys($unique);
+    }
+
+    function tier1_largest_pages($baseDir) {
+        $largestPages = load_json($baseDir . '/largest-pages.json', ['pages' => []])['pages'] ?? [];
+        $unique = [];
+        foreach ($largestPages as $path) {
+            if (eligible_warm_path($path) && !isset($unique[$path])) {
+                $unique[$path] = true;
+            }
+        }
+        return array_keys($unique);
+    }
+
+    $state = load_json($workerStateFile, []);
+    $lastTier1At = (int)($state['lastTier1At'] ?? 0);
+    $lastStartupStamp = (string)($state['lastStartupStamp'] ?? '');
+
+    while (true) {
+        $now = time();
+        $uncacheableMap = load_json($uncacheableFile, ['pages' => []])['pages'] ?? [];
+        foreach ($uncacheableMap as $path => $until) {
+            if (!is_numeric($until) || (int)$until <= $now) {
+                unset($uncacheableMap[$path]);
+            } else {
+                $uncacheableMap[$path] = (int)$until;
+            }
+        }
+
+        $startupStampRaw = is_file($startupStampFile) ? trim((string)@file_get_contents($startupStampFile)) : '';
+        $startupStamp = $startupStampRaw;
+        $startupPodBaseUrl = null;
+        if ($startupStampRaw !== '') {
+            $decodedStamp = json_decode($startupStampRaw, true);
+            if (is_array($decodedStamp)) {
+                $startupStamp = (string)($decodedStamp['stamp'] ?? '');
+                if (!empty($decodedStamp['podIp']) && is_string($decodedStamp['podIp'])) {
+                    $startupPodBaseUrl = 'http://' . $decodedStamp['podIp'];
+                }
+            }
+        }
+        if ($startupStamp !== '' && $startupStamp !== $lastStartupStamp) {
+            $priorityTier = array_values(array_diff(tier1_core_pages($baseDir), array_keys($uncacheableMap)));
+            $bulkTier = array_values(array_diff(tier1_largest_pages($baseDir), array_keys($uncacheableMap)));
+            $priorityEntries = [];
+            foreach ($priorityTier as $path) {
+                $priorityEntries[] = [
+                    'path' => $path,
+                    'baseUrl' => $startupPodBaseUrl ?: $siteServer,
+                    'hostHeader' => $startupPodBaseUrl ? $siteHost : null,
+                ];
+            }
+            $bulkEntries = [];
+            foreach ($bulkTier as $path) {
+                $bulkEntries[] = [
+                    'path' => $path,
+                    'baseUrl' => $startupPodBaseUrl ?: $siteServer,
+                    'hostHeader' => $startupPodBaseUrl ? $siteHost : null,
+                ];
+            }
+            $priorityCount = append_queue_items($priorityQueueFile, $priorityEntries, 'varnish-startup-priority');
+            $bulkCount = append_queue_items($queueFile, $bulkEntries, 'varnish-startup-largest');
+            echo gmdate('c') . " startup stamp changed, queued priority={$priorityCount} largest={$bulkCount}\n";
+            $lastStartupStamp = $startupStamp;
+        }
+
+        if (($now - $lastTier1At) >= $tier1RefreshSeconds) {
+            $priorityTier = array_values(array_diff(tier1_core_pages($baseDir), array_keys($uncacheableMap)));
+            $bulkTier = array_values(array_diff(tier1_largest_pages($baseDir), array_keys($uncacheableMap)));
+            $priorityCount = append_queue_items($priorityQueueFile, $priorityTier, 'tier1-refresh-priority');
+            $bulkCount = append_queue_items($queueFile, $bulkTier, 'tier1-refresh-largest');
+            echo gmdate('c') . " periodic tier1 refresh queued priority={$priorityCount} largest={$bulkCount}\n";
+            $lastTier1At = $now;
+        }
+
+        $items = drain_queue($priorityQueueFile, $queueBatchSize);
+        $queueKind = 'priority';
+        if (!$items) {
+            $items = drain_queue($queueFile, $queueBatchSize);
+            $queueKind = 'normal';
+        }
+        if (!$items) {
+            atomic_write_json($workerStateFile, [
+                'generatedAt' => gmdate('c'),
+                'lastTier1At' => $lastTier1At,
+                'lastStartupStamp' => $lastStartupStamp
+            ]);
+            sleep($pollSeconds);
+            continue;
+        }
+
+        $seen = [];
+        $processed = 0;
+        foreach ($items as $entry) {
+            $path = $entry['path'];
+            if (isset($seen[$path]) || isset($uncacheableMap[$path])) {
+                continue;
+            }
+            $seen[$path] = true;
+            $attempt = max(0, (int)($entry['attempt'] ?? 0));
+            $baseUrl = !empty($entry['baseUrl']) && is_string($entry['baseUrl']) ? rtrim($entry['baseUrl'], '/') : $siteServer;
+            $headers = [];
+            if (!empty($entry['hostHeader']) && is_string($entry['hostHeader'])) {
+                $headers[] = 'Host: ' . $entry['hostHeader'];
+            }
+            $refresh = request_url($baseUrl . $path, $requestTimeout, $headers);
+            $cacheControl = strtolower((string)($refresh['cacheControl'] ?? ''));
+            if (($refresh['status'] ?? 0) === 404) {
+                $uncacheableMap[$path] = time() + $uncacheableTtl;
+            } elseif ($cacheControl !== '' && (strpos($cacheControl, 'no-store') !== false || strpos($cacheControl, 'private') !== false)) {
+                $uncacheableMap[$path] = time() + $uncacheableTtl;
+            } elseif (empty($refresh['ok']) && $attempt < 2) {
+                append_queue_items($queueKind === 'priority' ? $priorityQueueFile : $queueFile, [[
+                    'path' => $path,
+                    'attempt' => $attempt + 1,
+                    'baseUrl' => $entry['baseUrl'] ?? null,
+                    'hostHeader' => $entry['hostHeader'] ?? null,
+                ]], ($entry['reason'] ?? 'queue') . '-retry');
+            }
+            echo gmdate('c') . " queue={$queueKind} path={$path} reason=" . ($entry['reason'] ?? 'queue') .
+                " attempt={$attempt}" .
+                " base=" . $baseUrl .
+                " status=" . ($refresh['status'] ?? 0) .
+                " cache=" . ($refresh['cache'] ?? '-') .
+                " age=" . (($refresh['age'] ?? '') === null ? '-' : $refresh['age']) .
+                " seconds=" . ($refresh['seconds'] ?? '-') . "\n";
+            $processed++;
+            usleep(100000);
+        }
+
+        atomic_write_json($uncacheableFile, [
+            'generatedAt' => gmdate('c'),
+            'pages' => $uncacheableMap
+        ]);
+        atomic_write_json($workerStateFile, [
+            'generatedAt' => gmdate('c'),
+            'lastTier1At' => $lastTier1At,
+            'lastStartupStamp' => $lastStartupStamp,
+            'lastProcessedCount' => $processed
+        ]);
+    }
+  run-worker.sh: |
+    #!/bin/sh
+    set -eu
+    php /scripts/worker.php
 {{- end }}

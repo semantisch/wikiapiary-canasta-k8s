@@ -48,6 +48,7 @@ redis:
 
 cacheWarmer:
   enabled: true
+  workerEnabled: true
   discoverSchedule: "*/20 * * * *"
   warmSchedule: "*/5 * * * *"
   accessLogTail: 6000
@@ -58,7 +59,11 @@ cacheWarmer:
   semanticSetLimit: 250
   recentChangesLimit: 30
   warmPagesLimit: 120
+  queuePollSeconds: 5
+  queueBatchSize: 60
+  tier1RefreshSeconds: 900
   requestTimeoutSeconds: 15
+  uncacheableTtlSeconds: 86400
   resources:
     requests:
       cpu: 100m
@@ -564,6 +569,165 @@ configData:
       <?php
       $wgDisableSearchUpdate = false;
       $wgSearchSuggestCacheExpiry = 60 * 60;
+    settings--global--07CacheRewarm.php: |
+      <?php
+      $wgWikiApiaryWarmCacheDir = getenv( 'MW_WARM_CACHE_DIR' ) ?: '/warm-cache';
+      $wgWikiApiaryWarmQueueFile = $wgWikiApiaryWarmCacheDir . '/rewarm-priority.ndjson';
+      $wgWikiApiaryWarmTranslationsFile = $wgWikiApiaryWarmCacheDir . '/translation-pages.json';
+
+      if ( !function_exists( 'wfWikiApiaryRewarmPathFromPrefixedText' ) ) {
+          function wfWikiApiaryRewarmPathFromPrefixedText( string $prefixedText ): string {
+              $encoded = rawurlencode( str_replace( ' ', '_', $prefixedText ) );
+              $encoded = str_replace( [ '%2F', '%3A' ], [ '/', ':' ], $encoded );
+              return '/wiki/' . $encoded;
+          }
+      }
+
+      if ( !function_exists( 'wfWikiApiaryRewarmPathFromTitleLike' ) ) {
+          function wfWikiApiaryRewarmPathFromTitleLike( $titleLike ): string {
+              if ( is_object( $titleLike ) && method_exists( $titleLike, 'getPrefixedText' ) ) {
+                  return wfWikiApiaryRewarmPathFromPrefixedText( $titleLike->getPrefixedText() );
+              }
+              return '';
+          }
+      }
+
+      if ( !function_exists( 'wfWikiApiaryEligibleRewarmPath' ) ) {
+          function wfWikiApiaryEligibleRewarmPath( string $path ): bool {
+              if ( strpos( $path, '/wiki/' ) !== 0 || preg_match( '#^/wiki/Special:#', $path ) ) {
+                  return false;
+              }
+              foreach ( [ '/wiki/Template:', '/wiki/Module:', '/wiki/User:', '/wiki/Talk:', '/wiki/File:' ] as $blocked ) {
+                  if ( strpos( $path, $blocked ) === 0 ) {
+                      return false;
+                  }
+              }
+              return true;
+          }
+      }
+
+      if ( !function_exists( 'wfWikiApiaryLoadTranslatedMainPages' ) ) {
+          function wfWikiApiaryLoadTranslatedMainPages(): array {
+              global $wgWikiApiaryWarmTranslationsFile;
+              if ( !is_file( $wgWikiApiaryWarmTranslationsFile ) ) {
+                  return [];
+              }
+              $json = json_decode( (string)file_get_contents( $wgWikiApiaryWarmTranslationsFile ), true );
+              if ( !is_array( $json ) || empty( $json['pages'] ) || !is_array( $json['pages'] ) ) {
+                  return [];
+              }
+              $paths = [];
+              foreach ( $json['pages'] as $path ) {
+                  if ( is_string( $path ) && wfWikiApiaryEligibleRewarmPath( $path ) ) {
+                      $paths[$path] = true;
+                  }
+              }
+              return array_keys( $paths );
+          }
+      }
+
+      if ( !function_exists( 'wfWikiApiaryAppendRewarmQueue' ) ) {
+          function wfWikiApiaryAppendRewarmQueue( array $paths, string $reason ): bool {
+              global $wgWikiApiaryWarmCacheDir, $wgWikiApiaryWarmQueueFile;
+              if ( !$paths ) {
+                  return true;
+              }
+              if ( !is_dir( $wgWikiApiaryWarmCacheDir ) ) {
+                  @mkdir( $wgWikiApiaryWarmCacheDir, 0775, true );
+              }
+              $fp = @fopen( $wgWikiApiaryWarmQueueFile, 'c+' );
+              if ( !$fp ) {
+                  return false;
+              }
+              if ( !flock( $fp, LOCK_EX ) ) {
+                  fclose( $fp );
+                  return false;
+              }
+              fseek( $fp, 0, SEEK_END );
+              $unique = [];
+              foreach ( $paths as $path ) {
+                  if ( !is_string( $path ) || !wfWikiApiaryEligibleRewarmPath( $path ) ) {
+                      continue;
+                  }
+                  if ( isset( $unique[$path] ) ) {
+                      continue;
+                  }
+                  $unique[$path] = true;
+                  fwrite( $fp, json_encode( [
+                      'path' => $path,
+                      'reason' => $reason,
+                      'ts' => gmdate( 'c' ),
+                  ], JSON_UNESCAPED_SLASHES ) . "\n" );
+              }
+              fflush( $fp );
+              flock( $fp, LOCK_UN );
+              fclose( $fp );
+              return true;
+          }
+      }
+
+      if ( !function_exists( 'wfWikiApiaryMaybeExpandTranslatedMainPages' ) ) {
+          function wfWikiApiaryMaybeExpandTranslatedMainPages( array $paths ): array {
+              $expanded = [];
+              foreach ( $paths as $path ) {
+                  if ( !is_string( $path ) || !wfWikiApiaryEligibleRewarmPath( $path ) ) {
+                      continue;
+                  }
+                  $expanded[$path] = true;
+                  if ( $path === '/wiki/Main_Page' ) {
+                      foreach ( wfWikiApiaryLoadTranslatedMainPages() as $translatedPath ) {
+                          $expanded[$translatedPath] = true;
+                      }
+                  }
+              }
+              return array_keys( $expanded );
+          }
+      }
+
+      $wgHooks['PageSaveComplete'][] = static function (
+          $wikiPage,
+          $user,
+          $summary,
+          $flags,
+          $revisionRecord,
+          $editResult
+      ) {
+          $path = wfWikiApiaryRewarmPathFromTitleLike( $wikiPage->getTitle() );
+          wfWikiApiaryAppendRewarmQueue(
+              wfWikiApiaryMaybeExpandTranslatedMainPages( [ $path ] ),
+              'page-save'
+          );
+          return true;
+      };
+
+      $wgHooks['ArticlePurge'][] = static function ( $wikiPage ) {
+          $path = wfWikiApiaryRewarmPathFromTitleLike( $wikiPage->getTitle() );
+          wfWikiApiaryAppendRewarmQueue(
+              wfWikiApiaryMaybeExpandTranslatedMainPages( [ $path ] ),
+              'article-purge'
+          );
+          return true;
+      };
+
+      $wgHooks['PageMoveComplete'][] = static function (
+          $old,
+          $new,
+          $user,
+          $pageid,
+          $redirid,
+          $reason,
+          $revision
+      ) {
+          $paths = [
+              wfWikiApiaryRewarmPathFromTitleLike( $old ),
+              wfWikiApiaryRewarmPathFromTitleLike( $new ),
+          ];
+          wfWikiApiaryAppendRewarmQueue(
+              wfWikiApiaryMaybeExpandTranslatedMainPages( $paths ),
+              'page-move'
+          );
+          return true;
+      };
     settings--wikis--main--99DbOverride.php: |
       <?php
       $wgDBtype = 'mysql';

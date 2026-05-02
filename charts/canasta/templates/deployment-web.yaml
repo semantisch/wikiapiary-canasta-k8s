@@ -134,6 +134,8 @@ spec:
                 secretKeyRef:
                   name: {{ include "canasta.dbSecretName" . }}
                   key: MYSQL_PASSWORD
+            - name: MW_WARM_CACHE_DIR
+              value: /warm-cache
             - name: MW_SECRET_KEY
               valueFrom:
                 secretKeyRef:
@@ -166,6 +168,8 @@ spec:
               mountPath: /var/www/mediawiki/w/user-skins
             - name: public-assets
               mountPath: /mediawiki/public_assets
+            - name: cache-warm
+              mountPath: /warm-cache
             - name: override-bin
               mountPath: /override-bin
           {{- with .Values.web.resources }}
@@ -219,6 +223,9 @@ spec:
         - name: public-assets
           persistentVolumeClaim:
             claimName: {{ include "canasta.fullname" . }}-public-assets
+        - name: cache-warm
+          persistentVolumeClaim:
+            claimName: {{ include "canasta.fullname" . }}-cache-warm
       hostAliases:
         - ip: "172.17.0.1"
           hostnames:
