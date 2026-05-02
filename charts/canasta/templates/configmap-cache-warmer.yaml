@@ -65,7 +65,7 @@ data:
         if (!is_string($ua) || $ua === '') {
             return false;
         }
-        return (bool)preg_match('/bot|crawl|spider|slurp|GPTBot|GoogleOther|bingbot|Ahrefs|Semrush/i', $ua);
+        return (bool)preg_match('/WikiApiaryCacheWarmer|WikiApiaryCacheDiscovery|bot|crawl|spider|slurp|GPTBot|GoogleOther|bingbot|Ahrefs|Semrush|curl\//i', $ua);
     }
 
     function wiki_path_from_title($title) {
@@ -96,7 +96,7 @@ data:
         if ($html !== '' && preg_match('/<ul id="top-bar-left".*?<\/ul>/s', $html, $match)) {
             if (preg_match_all('/href="([^"]+)"/', $match[0], $hrefs)) {
                 foreach ($hrefs[1] as $href) {
-                    if (strpos($href, '/wiki/') === 0) {
+                    if (strpos($href, '/wiki/') === 0 && !preg_match('#^/wiki/Special:#', $href)) {
                         $urls[] = html_entity_decode($href, ENT_QUOTES);
                     }
                 }
@@ -279,7 +279,7 @@ data:
     $semanticPages = load_json($semanticFile, ['pages' => []])['pages'] ?? [];
 
     $recentChanges = fetch_json(
-        $siteServer . '/w/api.php?action=query&list=recentchanges&rclimit=' . $recentChangesLimit . '&rcprop=title|ids|timestamp&format=json',
+        $siteServer . '/w/api.php?action=query&list=recentchanges&rcnamespace=0&rclimit=' . $recentChangesLimit . '&rcprop=title|ids|timestamp&format=json',
         $requestTimeout
     );
     $changedPages = [];
