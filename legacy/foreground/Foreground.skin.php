@@ -246,6 +246,7 @@ class foregroundTemplate extends BaseTemplate {
 					<div id="footer-right-icons" class="<?php echo $footerRightClass;?>">
 					<ul id="poweredby">
 						<?php foreach ( $this->getFooterIcons( $poweredbyType ) as $blockName => $footerIcons ) { ?>
+							<?php if ( $blockName === 'poweredbysmw' ) { continue; } ?>
 							<li class="<?php echo $blockName ?>"><?php foreach ( $footerIcons as $icon ) { ?>
 								<?php echo $this->renderLegacyFooterIcon( $icon ); ?>
 								<?php } ?>
