@@ -78,7 +78,7 @@ cacheWarmer:
   semanticDiscoveryLimit: 40
   semanticSetLimit: 200
   recentChangesLimit: 25
-  warmPagesLimit: 30
+  warmPagesLimit: 120
   requestTimeoutSeconds: 15
   resources:
     requests:

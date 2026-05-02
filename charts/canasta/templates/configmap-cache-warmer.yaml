@@ -18,6 +18,7 @@ data:
     $largestFile = $baseDir . '/largest-pages.json';
     $semanticFile = $baseDir . '/semantic-pages.json';
     $seedFile = $baseDir . '/seed-pages.json';
+    $translationFile = $baseDir . '/translation-pages.json';
     $stateFile = $baseDir . '/discovery-state.json';
     $siteServer = rtrim(getenv('SITE_SERVER') ?: 'https://wikiapiary.dobriy.ai', '/');
     $siteHost = getenv('SITE_HOST') ?: parse_url($siteServer, PHP_URL_HOST);
@@ -126,6 +127,52 @@ data:
         }
         $json = json_decode($data, true);
         return is_array($json) ? $json : [];
+    }
+
+    function fetch_valid_language_codes($siteServer, $timeout) {
+        $codes = [];
+        $data = fetch_json_url(
+            $siteServer . '/w/api.php?action=query&meta=siteinfo&siprop=languages&format=json',
+            $timeout
+        );
+        foreach (($data['query']['languages'] ?? []) as $lang) {
+            if (!empty($lang['code']) && is_string($lang['code'])) {
+                $codes[strtolower($lang['code'])] = true;
+            }
+        }
+        return $codes;
+    }
+
+    function discover_translation_pages($siteServer, array $sourcePages, array $validLanguageCodes, $timeout) {
+        $translations = [];
+        foreach ($sourcePages as $url) {
+            if (!eligible_warm_path($url) || strpos($url, '/wiki/') !== 0) {
+                continue;
+            }
+            $title = str_replace('_', ' ', rawurldecode(substr($url, strlen('/wiki/'))));
+            $data = fetch_json_url(
+                $siteServer . '/w/api.php?action=query&list=allpages&apprefix=' . rawurlencode($title . '/') . '&aplimit=max&format=json',
+                $timeout
+            );
+            foreach (($data['query']['allpages'] ?? []) as $page) {
+                $translatedTitle = $page['title'] ?? '';
+                if (!is_string($translatedTitle) || strpos($translatedTitle, $title . '/') !== 0) {
+                    continue;
+                }
+                $suffix = substr($translatedTitle, strlen($title . '/'));
+                $suffixKey = strtolower($suffix);
+                if ($suffix === '' || !isset($validLanguageCodes[$suffixKey])) {
+                    continue;
+                }
+                $translatedUrl = wiki_path_from_title($translatedTitle);
+                if (eligible_warm_path($translatedUrl)) {
+                    $translations[] = $translatedUrl;
+                }
+            }
+        }
+        $translations = array_values(array_unique($translations));
+        sort($translations);
+        return $translations;
     }
 
     function discover_seed_pages($siteServer, $timeout) {
@@ -290,6 +337,19 @@ data:
         'scores' => array_slice($counts, 0, $hotLimit, true)
     ]);
 
+    $validLanguageCodes = fetch_valid_language_codes($siteServer, $requestTimeout);
+    $translationPages = discover_translation_pages(
+        $siteServer,
+        array_values(array_unique(array_merge($seedPages, array_slice($hotPages, 0, min(20, $hotLimit))))),
+        $validLanguageCodes,
+        $requestTimeout
+    );
+    atomic_write_json($translationFile, [
+        'generatedAt' => gmdate('c'),
+        'pages' => $translationPages,
+        'codes' => array_keys($validLanguageCodes)
+    ]);
+
     $semanticState = load_json($stateFile, []);
     $knownSemantic = load_json($semanticFile, ['pages' => []]);
     $knownMap = [];
@@ -322,7 +382,7 @@ data:
         'generatedAt' => gmdate('c')
     ]);
 
-    echo "seeded=" . count($seedPages) . " largest=" . count($largestPages) . " hot=" . count($hotPages) . " semantic=" . count($semanticPages) . PHP_EOL;
+    echo "seeded=" . count($seedPages) . " translated=" . count($translationPages) . " largest=" . count($largestPages) . " hot=" . count($hotPages) . " semantic=" . count($semanticPages) . PHP_EOL;
   warm.php: |
     <?php
     error_reporting(E_ALL);
@@ -333,6 +393,7 @@ data:
     $largestFile = $baseDir . '/largest-pages.json';
     $semanticFile = $baseDir . '/semantic-pages.json';
     $seedFile = $baseDir . '/seed-pages.json';
+    $translationFile = $baseDir . '/translation-pages.json';
     $reportFile = $baseDir . '/warm-run.json';
     $warmStateFile = $baseDir . '/warm-state.json';
     $siteServer = rtrim(getenv('SITE_SERVER') ?: 'https://wikiapiary.dobriy.ai', '/');
@@ -451,6 +512,7 @@ data:
     }
 
     $seedPages = load_json($seedFile, ['pages' => []])['pages'] ?? [];
+    $translationPages = load_json($translationFile, ['pages' => []])['pages'] ?? [];
     $hotPages = load_json($hotFile, ['pages' => []])['pages'] ?? [];
     $largestPages = load_json($largestFile, ['pages' => []])['pages'] ?? [];
     $semanticPages = load_json($semanticFile, ['pages' => []])['pages'] ?? [];
@@ -487,7 +549,7 @@ data:
     ]);
 
     $ordered = [];
-    foreach ([$changedPages, $hotPages, $semanticPages, $seedPages, $largestBatch] as $group) {
+    foreach ([$changedPages, $hotPages, $translationPages, $semanticPages, $seedPages, $largestBatch] as $group) {
         foreach ($group as $url) {
             if (!isset($ordered[$url]) && eligible_warm_path($url)) {
                 $ordered[$url] = true;
@@ -515,6 +577,7 @@ data:
         'generatedAt' => gmdate('c'),
         'largestBatchOffsetNext' => $largestOffset,
         'largestBatch' => $largestBatch,
+        'translationPages' => $translationPages,
         'targets' => $targets,
         'results' => $results
     ]);
