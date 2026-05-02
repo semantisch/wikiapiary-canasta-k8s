@@ -66,14 +66,20 @@ sub vcl_recv {
     call mobile_detect;
 
     # Pass requests from logged-in users directly.
-    # Only detect cookies with "session" and "Token" in file name, otherwise nothing get cached.
-    if (req.http.Authorization || req.http.Cookie ~ "([sS]ession|Token)=") {
+    if (req.http.Authorization) {
         return (pass);
-    } /* Not cacheable by default */
+    }
 
-    # At this point the request is anonymous, so strip any unrelated cookies
-    # to avoid fragmenting the shared cache on Cookie variations.
+    # MediaWiki may set anonymous session cookies for public page views.
+    # Those should not explode the shared cache or force a pass. Only keep
+    # cookies that indicate an authenticated/user-specific session.
     if (req.http.Cookie) {
+        if (req.http.Cookie ~ "(^|; )wikiapiary(UserID|UserName|Token)="
+            || req.http.Cookie ~ "(^|; )centralauth_"
+            || req.http.Cookie ~ "(^|; )Token=") {
+            return (pass);
+        }
+
         unset req.http.Cookie;
     }
 
@@ -116,9 +122,20 @@ sub vcl_pipe {
 
 # Called if the cache has a copy of the page.
 sub vcl_hit {
+        set req.http.X-WikiApiary-Cache = "HIT";
         if (!obj.ttl > 0s) {
             return (pass);
         }
+}
+
+sub vcl_miss {
+        set req.http.X-WikiApiary-Cache = "MISS";
+        return (fetch);
+}
+
+sub vcl_pass {
+        set req.http.X-WikiApiary-Cache = "PASS";
+        return (fetch);
 }
 
 # Called after a document has been successfully retrieved from the backend.
@@ -138,8 +155,18 @@ sub vcl_backend_response {
         }
 
         if (beresp.http.Set-Cookie) {
-          set beresp.uncacheable = true;
-          return (deliver);
+          # MediaWiki occasionally emits an anonymous session cookie on an
+          # otherwise public wiki page. Strip that cookie so the page can stay
+          # cacheable, but keep passing anything that looks user-specific.
+          if (bereq.url ~ "^/wiki/"
+              && bereq.url !~ "^/wiki/Special:"
+              && beresp.http.Set-Cookie ~ "wikiapiary_session="
+              && beresp.http.Set-Cookie !~ "(UserID|UserName|Token|centralauth_)") {
+            unset beresp.http.Set-Cookie;
+          } else {
+            set beresp.uncacheable = true;
+            return (deliver);
+          }
         }
 
         if (beresp.http.Authorization && !beresp.http.Cache-Control ~ "public") {
@@ -160,6 +187,10 @@ sub vcl_backend_response {
 # Rewrite Cache-Control before sending to browser
 # Varnish has already used s-maxage internally; tell browsers not to cache at all
 sub vcl_deliver {
+    if (req.http.X-WikiApiary-Cache) {
+        set resp.http.X-WikiApiary-Cache = req.http.X-WikiApiary-Cache;
+    }
+
     if (resp.http.Cache-Control ~ "s-maxage") {
         set resp.http.Cache-Control = "public, max-age=60, stale-while-revalidate=300, stale-if-error=86400";
 
