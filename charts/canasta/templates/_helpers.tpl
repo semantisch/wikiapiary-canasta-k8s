@@ -57,11 +57,12 @@ MW secret name.
 {{- end }}
 
 {{/*
-Backend service for ingress — always routes to caddy.
-Caddy handles wiki farm routing, then forwards to varnish or web.
+Backend service for ingress.
+Defaults to caddy, but can be overridden for clusters where ingress must
+reach a node-local proxy path instead of cross-node pod networking.
 */}}
 {{- define "canasta.backendService" -}}
-caddy
+{{- .Values.ingress.backendServiceName | default "caddy" -}}
 {{- end }}
 
 {{/*

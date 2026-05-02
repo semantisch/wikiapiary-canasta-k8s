@@ -112,9 +112,20 @@ ingress:
   enabled: true
   className: ""
   tls: true
+  backendServiceName: caddy
   tlsHosts: []
   tlsSecretName: ""
   annotations: {}
+  edge:
+    enabled: false
+    namespace: bunkerweb
+    className: nginx
+    backendServiceName: bunkerweb-external
+    backendServicePortName: http
+    tls: true
+    tlsHosts: []
+    tlsSecretName: ""
+    annotations: {}
   certManager:
     enabled: false
     issuer: letsencrypt-prod

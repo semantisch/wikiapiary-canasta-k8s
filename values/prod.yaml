@@ -82,12 +82,34 @@ extensionOverrides:
 
 ingress:
   enabled: true
-  className: nginx
-  tls: true
-  tlsHosts:
-    - wikiapiary.dobriy.ai
-  tlsSecretName: canasta-wikiapiary-tls
-  annotations: {}
+  className: bunkerweb
+  tls: false
+  tlsHosts: []
+  tlsSecretName: ""
+  annotations:
+    bunkerweb.io/KEEP_UPSTREAM_HEADERS: "Content-Security-Policy Permissions-Policy X-Frame-Options Cache-Control Referrer-Policy"
+    bunkerweb.io/REVERSE_PROXY_HEADERS: "X-Forwarded-Proto $http_x_forwarded_proto;X-Forwarded-Protocol $http_x_forwarded_proto;X-Forwarded-Port 443"
+    bunkerweb.io/REVERSE_PROXY_INTERCEPT_ERRORS: "no"
+    bunkerweb.io/SECURITY_MODE: "block"
+    bunkerweb.io/USE_ANTIBOT: "no"
+    bunkerweb.io/USE_BAD_BEHAVIOR: "no"
+    bunkerweb.io/USE_BLACKLIST: "no"
+    bunkerweb.io/USE_DNSBL: "no"
+    bunkerweb.io/USE_LIMIT_REQ: "no"
+    bunkerweb.io/USE_MODSECURITY: "yes"
+    bunkerweb.io/USE_MODSECURITY_CRS: "no"
+    bunkerweb.io/USE_WHITELIST: "no"
+  edge:
+    enabled: true
+    namespace: bunkerweb
+    className: nginx
+    backendServiceName: bunkerweb-external
+    backendServicePortName: http
+    tls: true
+    tlsHosts:
+      - wikiapiary.dobriy.ai
+    tlsSecretName: canasta-wikiapiary-tls
+    annotations: {}
   certManager:
     enabled: true
     issuer: letsencrypt-prod
