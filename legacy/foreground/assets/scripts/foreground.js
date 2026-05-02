@@ -3,23 +3,33 @@ jQuery(document).ready(function() {
   function bindExplicitDropdown(buttonSelector, menuSelector, namespace) {
     var $button = jQuery(buttonSelector);
     var $menu = jQuery(menuSelector);
+    var $item = $button.closest('li.has-dropdown');
 
-    if (!$button.length || !$menu.length) {
+    if (!$button.length || !$menu.length || !$item.length) {
       return;
     }
 
     function positionMenu() {
-      var offset = $button.offset();
       $menu.css({
         position: 'absolute',
-        left: offset.left,
-        top: offset.top + $button.outerHeight() + 8
+        left: '',
+        top: '',
+        width: 'auto',
+        height: 'auto',
+        clip: 'auto',
+        overflow: 'visible',
+        display: 'block'
       });
     }
 
     function closeMenu() {
+      $item.removeClass('hover');
       $menu.removeClass('open').attr('aria-hidden', 'true').css({
         display: 'none',
+        width: '1px',
+        height: '1px',
+        clip: 'rect(1px, 1px, 1px, 1px)',
+        overflow: 'hidden',
         left: '-9999px',
         top: ''
       });
@@ -27,6 +37,7 @@ jQuery(document).ready(function() {
     }
 
     function openMenu() {
+      $item.addClass('hover');
       positionMenu();
       $menu.addClass('open').attr('aria-hidden', 'false').css({
         display: 'block'

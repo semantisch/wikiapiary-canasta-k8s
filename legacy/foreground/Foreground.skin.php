@@ -116,7 +116,7 @@ class foregroundTemplate extends BaseTemplate {
 				</li>
 				<li class="divider show-for-small"></li>
 
-				<li class="has-dropdown active"><a id="toolbox-button" href="#" data-dropdown="toolbox-dropdown" aria-controls="toolbox-dropdown" aria-expanded="false"><i class="fa fa-cogs"></i></a>
+				<li class="has-dropdown active"><a id="toolbox-button" href="#" data-dropdown="toolbox-dropdown" aria-controls="toolbox-dropdown" aria-expanded="false" onclick="var m=document.getElementById('toolbox-dropdown');var li=this.closest('li');if(!m||!li){return false;}var open=!li.classList.contains('hover');li.classList.toggle('hover',open);this.classList.toggle('open',open);this.setAttribute('aria-expanded',open?'true':'false');m.setAttribute('aria-hidden',open?'false':'true');m.style.display=open?'block':'none';m.style.width=open?'auto':'1px';m.style.height=open?'auto':'1px';m.style.clip=open?'auto':'rect(1px, 1px, 1px, 1px)';m.style.overflow=open?'visible':'hidden';if(!open){m.style.left='-9999px';m.style.top='';}return false;"><i class="fa fa-cogs"></i></a>
 						<ul id="toolbox-dropdown" class="dropdown">
 							<?php
 							$toolboxItems = [];
@@ -133,7 +133,7 @@ class foregroundTemplate extends BaseTemplate {
 					</ul>
 				</li>
 
-				<li id="personal-tools-dropdown" class="has-dropdown active"><a id="personal-tools-button" href="#" data-dropdown="personal-tools-menu" aria-controls="personal-tools-menu" aria-expanded="false"><i class="fa fa-user"></i></a>
+				<li id="personal-tools-dropdown" class="has-dropdown active"><a id="personal-tools-button" href="#" data-dropdown="personal-tools-menu" aria-controls="personal-tools-menu" aria-expanded="false" onclick="var m=document.getElementById('personal-tools-menu');var li=this.closest('li');if(!m||!li){return false;}var open=!li.classList.contains('hover');li.classList.toggle('hover',open);this.classList.toggle('open',open);this.setAttribute('aria-expanded',open?'true':'false');m.setAttribute('aria-hidden',open?'false':'true');m.style.display=open?'block':'none';m.style.width=open?'auto':'1px';m.style.height=open?'auto':'1px';m.style.clip=open?'auto':'rect(1px, 1px, 1px, 1px)';m.style.overflow=open?'visible':'hidden';if(!open){m.style.left='-9999px';m.style.top='';}return false;"><i class="fa fa-user"></i></a>
 					<ul id="personal-tools-menu" class="dropdown">
 						<?php foreach ( $this->getPersonalTools() as $key => $item ) { echo $this->makeListItem($key, $item); } ?>
 					</ul>
