@@ -1,65 +1,75 @@
 jQuery(document).ready(function() {
 
+  function bindExplicitDropdown(buttonSelector, menuSelector, namespace) {
+    var $button = jQuery(buttonSelector);
+    var $menu = jQuery(menuSelector);
+
+    if (!$button.length || !$menu.length) {
+      return;
+    }
+
+    function positionMenu() {
+      var offset = $button.offset();
+      $menu.css({
+        position: 'absolute',
+        left: offset.left,
+        top: offset.top + $button.outerHeight() + 8
+      });
+    }
+
+    function closeMenu() {
+      $menu.removeClass('open').attr('aria-hidden', 'true').css({
+        display: 'none',
+        left: '-9999px',
+        top: ''
+      });
+      $button.removeClass('open').attr('aria-expanded', 'false');
+    }
+
+    function openMenu() {
+      positionMenu();
+      $menu.addClass('open').attr('aria-hidden', 'false').css({
+        display: 'block'
+      });
+      $button.addClass('open').attr('aria-expanded', 'true');
+    }
+
+    closeMenu();
+
+    $button.off('click.' + namespace).on('click.' + namespace, function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if ($menu.hasClass('open')) {
+        closeMenu();
+      } else {
+        openMenu();
+      }
+    });
+
+    jQuery(document).off('click.' + namespace).on('click.' + namespace, function (e) {
+      if (!jQuery(e.target).closest(buttonSelector + ', ' + menuSelector).length) {
+        closeMenu();
+      }
+    });
+
+    jQuery(window).off('resize.' + namespace).on('resize.' + namespace, function () {
+      if ($menu.hasClass('open')) {
+        positionMenu();
+      }
+    });
+  }
+
   // Log errors
   jQuery(document).foundation(function (response) {
     if (window.console) console.log(response.errors);
   });
 
   // Foundation's legacy dropdown wiring is unreliable on the migrated stack.
-  // Keep the page actions menu working with a small compatibility fallback.
-  var $actionsButton = jQuery('#actions-button');
-  var $actionsMenu = jQuery('#actions');
-
-  function positionActionsMenu() {
-    if (!$actionsButton.length || !$actionsMenu.length) {
-      return;
-    }
-
-    var offset = $actionsButton.offset();
-    $actionsMenu.css({
-      position: 'absolute',
-      left: offset.left,
-      top: offset.top + $actionsButton.outerHeight() + 8
-    });
-  }
-
-  function closeActionsMenu() {
-    $actionsMenu.removeClass('open').attr('aria-hidden', 'true');
-    $actionsButton.removeClass('open');
-  }
-
-  function openActionsMenu() {
-    positionActionsMenu();
-    $actionsMenu.addClass('open').attr('aria-hidden', 'false');
-    $actionsButton.addClass('open');
-  }
-
-  if ($actionsButton.length && $actionsMenu.length) {
-    $actionsMenu.attr('aria-hidden', 'true');
-
-    $actionsButton.on('click.foregroundActions', function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-
-      if ($actionsMenu.hasClass('open')) {
-        closeActionsMenu();
-      } else {
-        openActionsMenu();
-      }
-    });
-
-    jQuery(document).on('click.foregroundActions', function (e) {
-      if (!jQuery(e.target).closest('#actions, #actions-button').length) {
-        closeActionsMenu();
-      }
-    });
-
-    jQuery(window).on('resize.foregroundActions', function () {
-      if ($actionsMenu.hasClass('open')) {
-        positionActionsMenu();
-      }
-    });
-  }
+  // Keep key menus working with explicit positioning/toggle fallbacks.
+  bindExplicitDropdown('#actions-button', '#actions', 'foregroundActions');
+  bindExplicitDropdown('#toolbox-button', '#toolbox-dropdown', 'foregroundToolbox');
+  bindExplicitDropdown('#personal-tools-button', '#personal-tools-menu', 'foregroundPersonalTools');
   
   // The Echo extension puts an item in personal tools that Foreground really should have in the top menu
   // to make this easier, we move it here and loaded earlier to speed up transform
