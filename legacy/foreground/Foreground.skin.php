@@ -45,6 +45,22 @@ class foregroundTemplate extends BaseTemplate {
 			}
 		}
 		$this->getSkin()->getOutput()->addHeadItem('ie-meta', '<meta http-equiv="X-UA-Compatible" content="IE=edge" />');
+		$this->getSkin()->getOutput()->addHeadItem(
+			'dobriyai-footer-fonts-preconnect',
+			'<link rel="preconnect" href="https://fonts.googleapis.com">'
+		);
+		$this->getSkin()->getOutput()->addHeadItem(
+			'dobriyai-footer-fonts-preconnect-static',
+			'<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
+		);
+		$this->getSkin()->getOutput()->addHeadItem(
+			'dobriyai-footer-fonts',
+			'<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">'
+		);
+		$this->getSkin()->getOutput()->addHeadItem(
+			'dobriyai-footer-inline-style',
+			'<style>.dobriyai-footer-link{display:inline-block;text-decoration:none}.dobriyai-footer-badge{display:inline-flex;flex-direction:column;align-items:flex-start;justify-content:center;min-width:88px;height:31px;padding:2px 8px;border:1px solid #c9ced6;border-radius:0;background:linear-gradient(180deg,#fff 0%,#f4f6f9 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.85);font-family:"Poppins",sans-serif!important;line-height:1.05}.dobriyai-footer-kicker{font-size:8px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#7f8c9a;font-family:"Poppins",sans-serif!important}.dobriyai-footer-brand{font-size:14px;font-weight:700;color:#1f2d3d;font-family:"Poppins",sans-serif!important}</style>'
+		);
 		switch ($wgForegroundFeatures['enableTabs']) {
 			case true:
 			    ob_start();
