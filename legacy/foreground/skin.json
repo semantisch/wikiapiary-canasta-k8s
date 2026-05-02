@@ -67,6 +67,7 @@
                 "assets/scripts/foundation/foundation.js",
                 "assets/scripts/foundation/foundation.topbar.js",
                 "assets/scripts/foundation/foundation.dropdown.js",
+                "assets/scripts/foundation/foundation.cookie.js",
                 "assets/scripts/foundation/foundation.joyride.js",
                 "assets/scripts/foundation/foundation.accordion.js",
                 "assets/scripts/foundation/foundation.offcanvas.js",
@@ -81,7 +82,6 @@
                 "assets/scripts/foreground.js"
             ],
             "dependencies": [
-                "jquery.cookie",
                 "skins.foreground.modernizr"
             ]
         }
