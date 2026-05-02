@@ -442,19 +442,12 @@ data:
 
     $results = [];
     foreach ($targets as $path) {
-        $refresh = request_url(
-            $siteServer . $path,
-            $requestTimeout,
-            'GET',
-            [
-                'X-WikiApiary-Warm-Refresh: 1'
-            ]
-        );
+        $refresh = request_url($siteServer . $path, $requestTimeout);
         $results[] = [
             'url' => $siteServer . $path,
             'path' => $path,
             'refresh' => $refresh,
-            'action' => 'refresh',
+            'action' => 'warm',
             'ok' => !empty($refresh['ok']),
             'seconds' => $refresh['seconds'] ?? null,
             'ageAfter' => $refresh['age'] ?? null

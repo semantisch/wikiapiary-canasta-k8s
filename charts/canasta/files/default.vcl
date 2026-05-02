@@ -82,14 +82,6 @@ sub vcl_recv {
         return (pass);
     } /* We only deal with GET and HEAD by default */
 
-    # Allow the cache warmer to fetch a fresh copy without evicting the
-    # currently cached object first. That keeps hot pages available while
-    # they are being refreshed in the background.
-    if (req.http.X-WikiApiary-Warm-Refresh == "1") {
-        set req.hash_always_miss = true;
-        unset req.http.X-WikiApiary-Warm-Refresh;
-    }
-
     # Force lookup if the request is a no-cache request from the client.
     if (req.http.Cache-Control ~ "no-cache") {
         ban(req.url);
@@ -158,8 +150,8 @@ sub vcl_backend_response {
         # Keep normal wiki pages around much longer at the proxy layer.
         # Freshness still comes from explicit purges on edit, so a longer TTL
         # helps hot landing/report pages stay warm instead of going cold again.
-        if (bereq.url ~ "^/wiki/" && bereq.url !~ "^/wiki/Special:" && beresp.ttl < 24h) {
-          set beresp.ttl = 24h;
+        if (bereq.url ~ "^/wiki/" && bereq.url !~ "^/wiki/Special:" && beresp.ttl < 168h) {
+          set beresp.ttl = 168h;
         }
 
         return (deliver);
