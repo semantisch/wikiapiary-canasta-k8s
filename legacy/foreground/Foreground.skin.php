@@ -123,11 +123,11 @@ class foregroundTemplate extends BaseTemplate {
 
 			<ul id="top-bar-left" class="left">
 				<li class="divider show-for-small"></li>
-				<?php foreach ( $this->getSidebar() as $boxName => $box ) { if ( ($box['header'] != wfMessage( 'toolbox' )->text())  ) { ?>
+				<?php foreach ( $this->getSidebar() as $boxName => $box ) { if ( ($box['header'] != wfMessage( 'toolbox' )->text())  ) { $menuId = Sanitizer::escapeIdForAttribute( $box['id'] . '-menu' ); ?>
 					<li class="has-dropdown active"  id='<?php echo Sanitizer::escapeIdForAttribute( $box['id'] ) ?>'<?php echo Linker::tooltip( $box['id'] ) ?>>
-						<a href="#"><?php echo htmlspecialchars( $box['header'] ); ?></a>
+						<a href="#" aria-controls="<?php echo $menuId; ?>" aria-expanded="false" onclick="var li=this.closest('li');var m=document.getElementById('<?php echo $menuId; ?>');if(!li||!m){return false;}var open=!li.classList.contains('hover');document.querySelectorAll('#top-bar-left > li.has-dropdown.hover').forEach(function(other){if(other!==li){other.classList.remove('hover');var om=other.querySelector('.dropdown');var oa=other.querySelector('a[href=&quot;#&quot;]');if(om){om.classList.remove('open');om.setAttribute('aria-hidden','true');om.style.display='none';}if(oa){oa.classList.remove('open');oa.setAttribute('aria-expanded','false');}}});li.classList.toggle('hover',open);this.classList.toggle('open',open);this.setAttribute('aria-expanded',open?'true':'false');m.classList.toggle('open',open);m.setAttribute('aria-hidden',open?'false':'true');m.style.display=open?'block':'none';return false;"><?php echo htmlspecialchars( $box['header'] ); ?></a>
 						<?php if ( is_array( $box['content'] ) ) { ?>
-							<ul class="dropdown">
+							<ul id="<?php echo $menuId; ?>" class="dropdown" aria-hidden="true">
 								<?php foreach ( $box['content'] as $key => $item ) { echo $this->makeListItem( $key, $item ); } ?>
 							</ul>
 						<?php } ?>
