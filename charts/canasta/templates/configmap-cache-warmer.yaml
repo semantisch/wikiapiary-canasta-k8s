@@ -74,6 +74,21 @@ data:
         return '/wiki/' . str_replace(['%2F', '%3A'], ['/', ':'], $encoded);
     }
 
+    function eligible_warm_path($url) {
+        if (!is_string($url) || strpos($url, '/wiki/') !== 0) {
+            return false;
+        }
+        if (preg_match('#^/wiki/Special:#', $url)) {
+            return false;
+        }
+        foreach (['/wiki/Template:', '/wiki/Module:', '/wiki/User:', '/wiki/Talk:', '/wiki/File:'] as $blocked) {
+            if (strpos($url, $blocked) === 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     function fetch_text($url, $timeout) {
         $ctx = stream_context_create([
             'http' => [
@@ -96,7 +111,7 @@ data:
         if ($html !== '' && preg_match('/<ul id="top-bar-left".*?<\/ul>/s', $html, $match)) {
             if (preg_match_all('/href="([^"]+)"/', $match[0], $hrefs)) {
                 foreach ($hrefs[1] as $href) {
-                    if (strpos($href, '/wiki/') === 0 && !preg_match('#^/wiki/Special:#', $href)) {
+                    if (strpos($href, '/wiki/') === 0 && eligible_warm_path($href)) {
                         $urls[] = html_entity_decode($href, ENT_QUOTES);
                     }
                 }
@@ -136,13 +151,10 @@ data:
         if (should_skip_ua($ua)) {
             continue;
         }
-        if (strpos($uri, '/wiki/') !== 0) {
+        if (!eligible_warm_path($uri)) {
             continue;
         }
         if (strpos($uri, '?') !== false || strpos($uri, '#') !== false) {
-            continue;
-        }
-        if (preg_match('#^/wiki/Special:#', $uri)) {
             continue;
         }
         $counts[$uri] = ($counts[$uri] ?? 0) + 1;
@@ -168,7 +180,7 @@ data:
         $title = substr($url, strlen('/wiki/'));
         $rawUrl = $siteServer . '/wiki/' . $title . '?action=raw';
         $raw = fetch_text($rawUrl, $requestTimeout);
-        if ($raw === '') {
+        if ($raw === '' || !eligible_warm_path($url)) {
             continue;
         }
         if (preg_match('/#ask:|#show:|Special:Ask|format=table|format=datatable/i', $raw)) {
@@ -220,6 +232,21 @@ data:
         $title = str_replace(' ', '_', $title);
         $encoded = rawurlencode($title);
         return '/wiki/' . str_replace(['%2F', '%3A'], ['/', ':'], $encoded);
+    }
+
+    function eligible_warm_path($url) {
+        if (!is_string($url) || strpos($url, '/wiki/') !== 0) {
+            return false;
+        }
+        if (preg_match('#^/wiki/Special:#', $url)) {
+            return false;
+        }
+        foreach (['/wiki/Template:', '/wiki/Module:', '/wiki/User:', '/wiki/Talk:', '/wiki/File:'] as $blocked) {
+            if (strpos($url, $blocked) === 0) {
+                return false;
+            }
+        }
+        return true;
     }
 
     function fetch_json($url, $timeout) {
@@ -296,7 +323,7 @@ data:
     $ordered = [];
     foreach ([$changedPages, $hotPages, $semanticPages, $seedPages] as $group) {
         foreach ($group as $url) {
-            if (!isset($ordered[$url]) && strpos($url, '/wiki/') === 0) {
+            if (!isset($ordered[$url]) && eligible_warm_path($url)) {
                 $ordered[$url] = true;
             }
         }
