@@ -172,7 +172,9 @@ data:
     $knownSemantic = load_json($semanticFile, ['pages' => []]);
     $knownMap = [];
     foreach (($knownSemantic['pages'] ?? []) as $url) {
-        $knownMap[$url] = time();
+        if (eligible_warm_path($url)) {
+            $knownMap[$url] = time();
+        }
     }
 
     $candidates = array_values(array_unique(array_merge($seedPages, array_slice($hotPages, 0, $semanticLimit))));
