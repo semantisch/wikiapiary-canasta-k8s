@@ -226,7 +226,7 @@ configData:
       $wgMaxShellMemory = 524288;
       $wgRequestTimeLimit = 300;
       $wgCompressRevisions = true;
-    settings--global--00Mail.php: |
+    settings--global--99Mail.php: |
       <?php
       $mailFrom = getenv( 'MW_MAIL_FROM' ) ?: '';
       $mailReplyTo = getenv( 'MW_MAIL_REPLYTO' ) ?: $mailFrom;
