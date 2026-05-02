@@ -440,6 +440,11 @@ configData:
           'alt' => 'Powered by Semantic MediaWiki',
           'class' => 'smw-footer',
       ];
+      $wgFooterIcons['poweredby']['canasta'] = [
+          'src' => '/w/resources/assets/Powered-by-Canasta.png',
+          'url' => 'https://canasta.wiki/',
+          'alt' => 'Powered by Canasta',
+      ];
       $wgFooterIcons['servedby']['dobriyai'] = [
           'src' => '',
           'url' => 'https://dobriy.ai',
