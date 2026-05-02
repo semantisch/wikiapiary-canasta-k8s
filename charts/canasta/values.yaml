@@ -73,6 +73,7 @@ cacheWarmer:
   warmSchedule: "*/5 * * * *"
   accessLogTail: 4000
   biggestWikisLimit: 100
+  largestBatchSize: 20
   hotPagesLimit: 80
   semanticDiscoveryLimit: 40
   semanticSetLimit: 200

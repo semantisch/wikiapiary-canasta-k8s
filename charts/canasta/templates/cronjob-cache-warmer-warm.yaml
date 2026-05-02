@@ -37,6 +37,8 @@ spec:
                   value: /warm-cache
                 - name: RECENT_CHANGES_LIMIT
                   value: "{{ .Values.cacheWarmer.recentChangesLimit }}"
+                - name: LARGEST_BATCH_SIZE
+                  value: "{{ .Values.cacheWarmer.largestBatchSize }}"
                 - name: WARM_PAGES_LIMIT
                   value: "{{ .Values.cacheWarmer.warmPagesLimit }}"
                 - name: REQUEST_TIMEOUT_SECONDS

@@ -334,8 +334,10 @@ data:
     $semanticFile = $baseDir . '/semantic-pages.json';
     $seedFile = $baseDir . '/seed-pages.json';
     $reportFile = $baseDir . '/warm-run.json';
+    $warmStateFile = $baseDir . '/warm-state.json';
     $siteServer = rtrim(getenv('SITE_SERVER') ?: 'https://wikiapiary.dobriy.ai', '/');
     $recentChangesLimit = max(5, (int)(getenv('RECENT_CHANGES_LIMIT') ?: 25));
+    $largestBatchSize = max(1, (int)(getenv('LARGEST_BATCH_SIZE') ?: 20));
     $warmPagesLimit = max(5, (int)(getenv('WARM_PAGES_LIMIT') ?: 30));
     $requestTimeout = max(3, (int)(getenv('REQUEST_TIMEOUT_SECONDS') ?: 15));
 
@@ -452,6 +454,7 @@ data:
     $hotPages = load_json($hotFile, ['pages' => []])['pages'] ?? [];
     $largestPages = load_json($largestFile, ['pages' => []])['pages'] ?? [];
     $semanticPages = load_json($semanticFile, ['pages' => []])['pages'] ?? [];
+    $warmState = load_json($warmStateFile, []);
 
     $recentChanges = fetch_json(
         $siteServer . '/w/api.php?action=query&list=recentchanges&rcnamespace=0&rclimit=' . $recentChangesLimit . '&rcprop=title|ids|timestamp&format=json',
@@ -468,8 +471,23 @@ data:
         $changedPages[] = wiki_path_from_title($change['title']);
     }
 
+    $largestBatch = [];
+    $largestCount = count($largestPages);
+    $largestOffset = (int)($warmState['largestOffset'] ?? 0);
+    if ($largestCount > 0) {
+        $limit = min($largestBatchSize, $largestCount);
+        for ($i = 0; $i < $limit; $i++) {
+            $largestBatch[] = $largestPages[($largestOffset + $i) % $largestCount];
+        }
+        $largestOffset = ($largestOffset + $limit) % $largestCount;
+    }
+    atomic_write_json($warmStateFile, [
+        'generatedAt' => gmdate('c'),
+        'largestOffset' => $largestOffset
+    ]);
+
     $ordered = [];
-    foreach ([$changedPages, $largestPages, $hotPages, $semanticPages, $seedPages] as $group) {
+    foreach ([$changedPages, $hotPages, $semanticPages, $seedPages, $largestBatch] as $group) {
         foreach ($group as $url) {
             if (!isset($ordered[$url]) && eligible_warm_path($url)) {
                 $ordered[$url] = true;
@@ -495,6 +513,8 @@ data:
 
     atomic_write_json($reportFile, [
         'generatedAt' => gmdate('c'),
+        'largestBatchOffsetNext' => $largestOffset,
+        'largestBatch' => $largestBatch,
         'targets' => $targets,
         'results' => $results
     ]);
