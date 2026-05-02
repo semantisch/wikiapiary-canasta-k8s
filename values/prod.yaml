@@ -89,7 +89,7 @@ ingress:
   annotations:
     bunkerweb.io/KEEP_UPSTREAM_HEADERS: "Content-Security-Policy Permissions-Policy X-Frame-Options Cache-Control Referrer-Policy"
     bunkerweb.io/REVERSE_PROXY_HEADERS: "X-Forwarded-Proto $http_x_forwarded_proto;X-Forwarded-Protocol $http_x_forwarded_proto;X-Forwarded-Port 443"
-    bunkerweb.io/REVERSE_PROXY_INTERCEPT_ERRORS: "no"
+    bunkerweb.io/REVERSE_PROXY_INTERCEPT_ERRORS: "yes"
     bunkerweb.io/SECURITY_MODE: "block"
     bunkerweb.io/USE_ANTIBOT: "no"
     bunkerweb.io/USE_BAD_BEHAVIOR: "no"
@@ -517,8 +517,6 @@ configData:
       $wgUploadPath = "/w/images/wikiapiary";
     settings--global--06Search.php: |
       <?php
-      $wgSearchType = 'CirrusSearch';
-      $wgCirrusSearchServers = [ '10.42.1.67' ];
       $wgDisableSearchUpdate = false;
       $wgSearchSuggestCacheExpiry = 60 * 60;
     settings--wikis--main--99DbOverride.php: |
