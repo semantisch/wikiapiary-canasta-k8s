@@ -53,6 +53,18 @@ varnish:
       cpu: 500m
       memory: 256Mi
 
+# Redis (shared object/session/parser cache)
+redis:
+  enabled: false
+  image: redis:7.2-alpine
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 512Mi
+
 # Database (MariaDB)
 # Set db.enabled=false and externalDatabase settings to use an external DB.
 db:
@@ -95,6 +107,8 @@ elasticsearch:
 # Job runner
 jobrunner:
   enabled: true
+  replicaCount: 1
+  runJobsArgs: "--wait --maxjobs=10"
   resources:
     requests:
       cpu: 100m

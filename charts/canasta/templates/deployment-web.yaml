@@ -150,6 +150,8 @@ spec:
               mountPath: /mediawiki/config
             - name: images
               mountPath: /mediawiki/images
+            - name: cache
+              mountPath: /mediawiki/cache
             - name: user-extensions
               mountPath: /var/www/mediawiki/w/user-extensions
             {{- if .Values.extensionOverrides.enabled }}
@@ -201,6 +203,8 @@ spec:
         - name: images
           persistentVolumeClaim:
             claimName: {{ include "canasta.fullname" . }}-images
+        - name: cache
+          emptyDir: {}
         - name: user-extensions
           persistentVolumeClaim:
             claimName: {{ include "canasta.fullname" . }}-extensions

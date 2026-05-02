@@ -19,7 +19,7 @@ acl purge {
 sub vcl_recv {
     # Serve objects up to 2 minutes past their expiry if the backend
     # is slow to respond.
-    # set req.grace = 120s;
+    set req.grace = 1h;
 
     set req.http.X-Forwarded-For = req.http.X-Forwarded-For + ", " + client.ip;
 
@@ -120,6 +120,8 @@ sub vcl_backend_response {
             return (deliver);
         }
 
+        set beresp.grace = 1h;
+
         # Respect the TTL MediaWiki sends via s-maxage rather than overriding it
         if (!beresp.ttl > 0s) {
           set beresp.uncacheable = true;
@@ -143,7 +145,7 @@ sub vcl_backend_response {
 # Varnish has already used s-maxage internally; tell browsers not to cache at all
 sub vcl_deliver {
     if (resp.http.Cache-Control ~ "s-maxage") {
-        set resp.http.Cache-Control = "no-store";
+        set resp.http.Cache-Control = "public, max-age=60, stale-while-revalidate=300, stale-if-error=86400";
     }
 }
 

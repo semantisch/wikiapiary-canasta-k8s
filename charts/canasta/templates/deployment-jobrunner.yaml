@@ -8,7 +8,7 @@ metadata:
     {{- include "canasta.labels" . | nindent 4 }}
     app.kubernetes.io/component: jobrunner
 spec:
-  replicas: 1
+  replicas: {{ .Values.jobrunner.replicaCount }}
   selector:
     matchLabels:
       {{- include "canasta.selectorLabels" . | nindent 6 }}
@@ -62,8 +62,9 @@ spec:
           command: ["/bin/bash", "-c"]
           args:
             - |
+              mkdir -p /mediawiki/cache/main && chown -R www-data:www-data /mediawiki/cache || true
               while true; do
-                php maintenance/runJobs.php --wait --maxjobs=10
+                php maintenance/runJobs.php {{ .Values.jobrunner.runJobsArgs }}
                 sleep 5
               done
           # See deployment-web.yaml for the full explanation of the
@@ -109,6 +110,8 @@ spec:
               readOnly: true
             - name: images
               mountPath: /mediawiki/images
+            - name: cache
+              mountPath: /mediawiki/cache
           {{- with .Values.jobrunner.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
@@ -123,4 +126,6 @@ spec:
         - name: images
           persistentVolumeClaim:
             claimName: {{ include "canasta.fullname" . }}-images
+        - name: cache
+          emptyDir: {}
 {{- end }}

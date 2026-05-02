@@ -36,6 +36,16 @@ caddy:
 varnish:
   enabled: true
 
+redis:
+  enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
 db:
   enabled: true
   storage: 220Gi
@@ -66,6 +76,8 @@ elasticsearch:
 
 jobrunner:
   enabled: true
+  replicaCount: 2
+  runJobsArgs: "--wait --maxjobs=100 --procs=4 --nothrottle"
   resources:
     requests:
       cpu: 250m
@@ -241,9 +253,17 @@ configData:
       $wgAllowSiteCSSOnRestrictedPages = true;
       $wgMiserMode = true;
       $wgEnableSidebarCache = true;
-      $wgMainCacheType = CACHE_ACCEL;
-      $wgSessionCacheType = CACHE_ACCEL;
-      $wgSessionsInObjectCache = false;
+      $wgObjectCaches[CACHE_REDIS] = [
+          'class' => RedisBagOStuff::class,
+          'servers' => [ 'redis:6379' ],
+          'persistent' => true,
+      ];
+      $wgMainCacheType = CACHE_REDIS;
+      $wgSessionCacheType = CACHE_REDIS;
+      $wgParserCacheType = CACHE_REDIS;
+      $wgMessageCacheType = CACHE_REDIS;
+      $wgLanguageConverterCacheType = CACHE_REDIS;
+      $wgSessionsInObjectCache = true;
       $wgEnableParserCache = true;
       $wgParserCacheExpireTime = 60 * 60 * 24 * 3;
       $wgMinimalPasswordLength = 8;
@@ -426,7 +446,7 @@ configData:
       $smwgQMaxDepth = 16;
       $smwgQConceptMaxSize = 20;
       $smwgQConceptMaxDepth = 8;
-      $smwgQueryResultCacheType = CACHE_ACCEL;
+      $smwgQueryResultCacheType = CACHE_REDIS;
       $smwgQueryResultCacheLifetime = 60 * 60 * 24;
       $srfgArraySep = "\n";
       $srfgArrayPropSep = ',';
