@@ -7,6 +7,18 @@
  * @ingroup Skins
  */
 class foregroundTemplate extends BaseTemplate {
+	private function renderLegacyFooterIcon( array $icon ) {
+		$url = htmlspecialchars( $icon['url'] ?? '#', ENT_QUOTES );
+		$src = htmlspecialchars( $icon['src'] ?? '', ENT_QUOTES );
+		$alt = htmlspecialchars( $icon['alt'] ?? '', ENT_QUOTES );
+		$class = isset( $icon['class'] ) ? ' class="' . htmlspecialchars( $icon['class'], ENT_QUOTES ) . '"' : '';
+		$srcset = isset( $icon['srcset'] ) ? ' srcset="' . htmlspecialchars( $icon['srcset'], ENT_QUOTES ) . '"' : '';
+		$width = isset( $icon['width'] ) ? ' width="' . intval( $icon['width'] ) . '"' : '';
+		$height = isset( $icon['height'] ) ? ' height="' . intval( $icon['height'] ) . '"' : '';
+
+		return '<a href="' . $url . '"><img src="' . $src . '" alt="' . $alt . '"' . $class . $srcset . $width . $height . ' loading="lazy"/></a>';
+	}
+
 	public function execute() {
 		global $wgForegroundFeatures;
 		$wgForegroundFeaturesDefaults = array(
@@ -235,7 +247,7 @@ class foregroundTemplate extends BaseTemplate {
 					<ul id="poweredby">
 						<?php foreach ( $this->getFooterIcons( $poweredbyType ) as $blockName => $footerIcons ) { ?>
 							<li class="<?php echo $blockName ?>"><?php foreach ( $footerIcons as $icon ) { ?>
-								<?php echo $this->getSkin()->makeFooterIcon( $icon, $poweredbyMakeType ); ?>
+								<?php echo $this->renderLegacyFooterIcon( $icon ); ?>
 								<?php } ?>
 							</li>
 						<?php } ?>

@@ -423,6 +423,7 @@ configData:
     settings--global--05Footer.php: |
       <?php
       $myWikiApiaryURL = "https://wikiapiary.dobriy.ai/wiki/WikiApiary";
+      unset( $wgFooterIcons['poweredbysmw'] );
       $wgFooterIcons['monitoredby']['wikiapiary'] = [
           'src' => '/w/images/wikiapiary/b/b4/Monitored_by_WikiApiary.png',
           'url' => "$myWikiApiaryURL?pk_campaign=FooterIcon&pk_kwd=wikiapiary",
