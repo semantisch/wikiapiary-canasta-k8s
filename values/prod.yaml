@@ -41,10 +41,10 @@ db:
   resources:
     requests:
       cpu: 500m
-      memory: 2Gi
+      memory: 4Gi
     limits:
       cpu: 4000m
-      memory: 8Gi
+      memory: 16Gi
 
 elasticsearch:
   enabled: false
@@ -103,10 +103,10 @@ configData:
       character-set-server = utf8mb4
       collation-server = utf8mb4_general_ci
       max_allowed_packet = 1G
-      innodb_buffer_pool_size = 8G
-      max_heap_table_size = 512M
-      tmp_table_size = 512M
-      tmp_memory_table_size = 512M
+      innodb_buffer_pool_size = 6G
+      max_heap_table_size = 256M
+      tmp_table_size = 256M
+      tmp_memory_table_size = 256M
   web:
     .env: |
       HTTP_PORT=80
