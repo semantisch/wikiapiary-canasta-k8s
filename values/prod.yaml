@@ -312,7 +312,7 @@ configData:
     settings--global--02Permissions.php: |
       <?php
       $wgGroupPermissions['*']['edit'] = false;
-      $wgGroupPermissions['*']['createaccount'] = false;
+      $wgGroupPermissions['*']['createaccount'] = true;
       $wgGroupPermissions['bot']['noratelimit'] = true;
       $wgGroupPermissions['bot']['delete'] = true;
       $wgRestrictionLevels[] = 'editors';
