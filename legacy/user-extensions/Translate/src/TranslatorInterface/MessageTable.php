@@ -31,7 +31,8 @@ class MessageTable extends ContextSource {
 
 	public function fullTable(): string {
 		$modules = [];
-		Hooks::run( 'TranslateBeforeAddModules', [ &$modules ] );
+		\MediaWiki\MediaWikiServices::getInstance()->getHookContainer()
+			->run( 'TranslateBeforeAddModules', [ &$modules ] );
 		$this->getOutput()->addModules( $modules );
 
 		$sourceLang = Language::factory( $this->group->getSourceLanguage() );

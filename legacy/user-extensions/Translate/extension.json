@@ -1005,7 +1005,7 @@
 			]
 		},
 		"ext.translate.tag.languages": {
-			"class": "ResourceLoaderLessVarFileModule",
+			"class": "MediaWiki\\ResourceLoader\\LessVarFileModule",
 			"styles": "resources/css/ext.translate.tag.languages.less",
 			"targets": [
 				"desktop",

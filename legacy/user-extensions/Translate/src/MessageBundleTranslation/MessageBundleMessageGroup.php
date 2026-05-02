@@ -210,7 +210,8 @@ class MessageBundleMessageGroup implements MessageGroup {
 		global $wgTranslateWorkflowStates;
 		$conf = $wgTranslateWorkflowStates ?: [];
 
-		MediaWikiHooks::run( 'Translate:modifyMessageGroupStates', [ $this->getId(), &$conf ] );
+		\MediaWiki\MediaWikiServices::getInstance()->getHookContainer()
+			->run( 'Translate:modifyMessageGroupStates', [ $this->getId(), &$conf ] );
 
 		return new MessageGroupStates( $conf );
 	}

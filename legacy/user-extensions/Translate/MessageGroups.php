@@ -67,7 +67,8 @@ class MessageGroups {
 			// When possible, a cache dependency is created to automatically recreate
 			// the cache when configuration changes. Currently used by other extensions
 			// such as Banner Messages and test cases to load message groups.
-			Hooks::run( 'TranslatePostInitGroups', [ &$groups, &$deps, &$autoload ] );
+			\MediaWiki\MediaWikiServices::getInstance()->getHookContainer()
+				->run( 'TranslatePostInitGroups', [ &$groups, &$deps, &$autoload ] );
 			// Register autoloaders for this request, both values modified by reference
 			self::appendAutoloader( $autoload, $wgAutoloadClasses );
 
@@ -244,7 +245,8 @@ class MessageGroups {
 			'cache' => $cache
 		];
 
-		Hooks::run( 'TranslateInitGroupLoaders', [ &$groupLoaderInstances, $deps ] );
+		\MediaWiki\MediaWikiServices::getInstance()->getHookContainer()
+			->run( 'TranslateInitGroupLoaders', [ &$groupLoaderInstances, $deps ] );
 
 		if ( $groupLoaderInstances === [] ) {
 			return $this->groupLoaders;

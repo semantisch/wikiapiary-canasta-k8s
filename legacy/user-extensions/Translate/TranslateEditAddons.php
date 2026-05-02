@@ -141,7 +141,8 @@ class TranslateEditAddons {
 		$user = User::newFromIdentity( $userIdentity );
 
 		if ( $fuzzy === false ) {
-			Hooks::run( 'Translate:newTranslation', [ $handle, $revId, $text, $user ] );
+			\MediaWiki\MediaWikiServices::getInstance()->getHookContainer()
+				->run( 'Translate:newTranslation', [ $handle, $revId, $text, $user ] );
 		}
 
 		TTMServer::onChange( $handle );

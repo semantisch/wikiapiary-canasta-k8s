@@ -377,8 +377,9 @@ abstract class MessageIndex {
 				$title = Title::makeTitle( $ns, $pagename );
 				$handle = new MessageHandle( $title );
 				[ $oldGroups, $newGroups ] = $data;
-				Hooks::run( 'TranslateEventMessageMembershipChange',
-					[ $handle, $oldGroups, $newGroups ] );
+				\MediaWiki\MediaWikiServices::getInstance()->getHookContainer()
+					->run( 'TranslateEventMessageMembershipChange',
+						[ $handle, $oldGroups, $newGroups ] );
 			}
 		}
 	}

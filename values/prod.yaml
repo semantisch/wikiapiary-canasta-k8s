@@ -417,6 +417,10 @@ configData:
       skins:
         - foreground
         - chameleon
+    settings--wikis--mw_wikiapiary--99LegacyUploads.php: |
+      <?php
+      $wgUploadDirectory = "{$IP}/images/wikiapiary";
+      $wgUploadPath = "/w/images/wikiapiary";
   env:
     CADDY_AUTO_HTTPS: "off"
     PHP_UPLOAD_MAX_FILESIZE: "100M"

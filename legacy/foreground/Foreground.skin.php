@@ -117,8 +117,17 @@ class foregroundTemplate extends BaseTemplate {
 				<li class="divider show-for-small"></li>
 
 				<li class="has-dropdown active"><a href="#"><i class="fa fa-cogs"></i></a>
-					<ul id="toolbox-dropdown" class="dropdown">
-						<?php foreach ( $this->getToolbox() as $key => $item ) { echo $this->makeListItem($key, $item); } ?>
+						<ul id="toolbox-dropdown" class="dropdown">
+							<?php
+							$toolboxItems = [];
+							foreach ( $this->getSidebar() as $box ) {
+								if ( $box['header'] === wfMessage( 'toolbox' )->text() && is_array( $box['content'] ) ) {
+									$toolboxItems = $box['content'];
+									break;
+								}
+							}
+							foreach ( $toolboxItems as $key => $item ) { echo $this->makeListItem( $key, $item ); }
+							?>
 						<?php if ($wgForegroundFeatures['showRecentChangesUnderTools']): ?><li id="n-recentchanges"><?php echo Linker::specialLink('Recentchanges') ?></li><?php endif; ?>
 						<?php if ($wgForegroundFeatures['showHelpUnderTools']): ?><li id="n-help" <?php echo Linker::tooltip('help') ?>><a href="<?php echo Skin::makeInternalOrExternalUrl( wfMessage( 'helppage' )->inContentLanguage()->text() )?>"><?php echo wfMessage( 'help' )->text() ?></a></li><?php endif; ?>
 					</ul>
@@ -167,7 +176,7 @@ class foregroundTemplate extends BaseTemplate {
 						<!--RTL -->
 						<ul id="actions" class="f-dropdown" data-dropdown-content>
 							<?php foreach( $this->data['content_actions'] as $key => $item ) { echo preg_replace(array('/\sprimary="1"/','/\scontext="[a-z]+"/','/\srel="archives"/'),'',$this->makeListItem($key, $item)); } ?>
-							<?php Hooks::run( 'SkinTemplateToolboxEnd', array( &$this, true ) );  ?>
+								<?php \MediaWiki\MediaWikiServices::getInstance()->getHookContainer()->run( 'SkinTemplateToolboxEnd', [ &$this, true ] ); ?>
 						</ul>
 						<!--RTL -->
 					<?php endif;

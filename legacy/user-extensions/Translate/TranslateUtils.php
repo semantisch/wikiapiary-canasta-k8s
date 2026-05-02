@@ -280,7 +280,8 @@ class TranslateUtils {
 			unset( $languageNames[ $deprecatedCode ] );
 		}
 
-		Hooks::run( 'TranslateSupportedLanguages', [ &$languageNames, $code ] );
+		\MediaWiki\MediaWikiServices::getInstance()->getHookContainer()
+			->run( 'TranslateSupportedLanguages', [ &$languageNames, $code ] );
 
 		return $languageNames;
 	}

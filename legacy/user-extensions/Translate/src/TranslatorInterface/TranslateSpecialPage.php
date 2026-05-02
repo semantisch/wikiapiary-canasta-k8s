@@ -153,7 +153,8 @@ class TranslateSpecialPage extends SpecialPage {
 
 		$this->defaults = $defaults;
 		$this->nondefaults = $nondefaults;
-		Hooks::run( 'TranslateGetSpecialTranslateOptions', [ &$defaults, &$nondefaults ] );
+		\MediaWiki\MediaWikiServices::getInstance()->getHookContainer()
+			->run( 'TranslateGetSpecialTranslateOptions', [ &$defaults, &$nondefaults ] );
 
 		$this->options = $nondefaults + $defaults;
 		$this->group = MessageGroups::getGroup( $this->options['group'] );
