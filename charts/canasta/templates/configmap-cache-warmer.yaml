@@ -15,12 +15,14 @@ data:
     $baseDir = getenv('WARM_CACHE_DIR') ?: '/warm-cache';
     $accessLog = getenv('ACCESS_LOG_FILE') ?: $baseDir . '/access.log';
     $hotFile = $baseDir . '/hot-pages.json';
+    $largestFile = $baseDir . '/largest-pages.json';
     $semanticFile = $baseDir . '/semantic-pages.json';
     $seedFile = $baseDir . '/seed-pages.json';
     $stateFile = $baseDir . '/discovery-state.json';
     $siteServer = rtrim(getenv('SITE_SERVER') ?: 'https://wikiapiary.dobriy.ai', '/');
     $siteHost = getenv('SITE_HOST') ?: parse_url($siteServer, PHP_URL_HOST);
     $accessTail = max(100, (int)(getenv('ACCESS_LOG_TAIL') ?: 4000));
+    $biggestWikisLimit = max(10, (int)(getenv('BIGGEST_WIKIS_LIMIT') ?: 100));
     $hotLimit = max(10, (int)(getenv('HOT_PAGES_LIMIT') ?: 80));
     $semanticLimit = max(10, (int)(getenv('SEMANTIC_DISCOVERY_LIMIT') ?: 40));
     $semanticSetLimit = max(20, (int)(getenv('SEMANTIC_SET_LIMIT') ?: 200));
@@ -115,6 +117,15 @@ data:
         ]);
         $data = @file_get_contents($url, false, $ctx);
         return $data === false ? '' : $data;
+    }
+
+    function fetch_json_url($url, $timeout) {
+        $data = fetch_text($url, $timeout);
+        if ($data === '') {
+            return [];
+        }
+        $json = json_decode($data, true);
+        return is_array($json) ? $json : [];
     }
 
     function discover_seed_pages($siteServer, $timeout) {
@@ -214,6 +225,31 @@ data:
         'pages' => $seedPages
     ]);
 
+    $largestScores = [];
+    $largestPages = [];
+    $largestQuery = rawurlencode('[[Category:Website]] [[Is active::true]]|?Has pages count=total pages|sort=Has pages count|order=desc|limit=' . $biggestWikisLimit);
+    $largestData = fetch_json_url(
+        $siteServer . '/w/api.php?action=ask&query=' . $largestQuery . '&format=json',
+        $requestTimeout
+    );
+    foreach (($largestData['query']['results'] ?? []) as $result) {
+        if (!is_array($result) || empty($result['fulltext'])) {
+            continue;
+        }
+        $url = wiki_path_from_title($result['fulltext']);
+        if (!eligible_warm_path($url)) {
+            continue;
+        }
+        $largestPages[] = $url;
+        $largestScores[$url] = (int)($result['printouts']['total pages'][0] ?? 0);
+    }
+    $largestPages = array_values(array_unique($largestPages));
+    atomic_write_json($largestFile, [
+        'generatedAt' => gmdate('c'),
+        'pages' => $largestPages,
+        'scores' => $largestScores
+    ]);
+
     $counts = [];
     foreach (tail_lines($accessLog, $accessTail) as $line) {
         $entry = json_decode($line, true);
@@ -286,7 +322,7 @@ data:
         'generatedAt' => gmdate('c')
     ]);
 
-    echo "seeded=" . count($seedPages) . " hot=" . count($hotPages) . " semantic=" . count($semanticPages) . PHP_EOL;
+    echo "seeded=" . count($seedPages) . " largest=" . count($largestPages) . " hot=" . count($hotPages) . " semantic=" . count($semanticPages) . PHP_EOL;
   warm.php: |
     <?php
     error_reporting(E_ALL);
@@ -294,6 +330,7 @@ data:
 
     $baseDir = getenv('WARM_CACHE_DIR') ?: '/warm-cache';
     $hotFile = $baseDir . '/hot-pages.json';
+    $largestFile = $baseDir . '/largest-pages.json';
     $semanticFile = $baseDir . '/semantic-pages.json';
     $seedFile = $baseDir . '/seed-pages.json';
     $reportFile = $baseDir . '/warm-run.json';
@@ -413,6 +450,7 @@ data:
 
     $seedPages = load_json($seedFile, ['pages' => []])['pages'] ?? [];
     $hotPages = load_json($hotFile, ['pages' => []])['pages'] ?? [];
+    $largestPages = load_json($largestFile, ['pages' => []])['pages'] ?? [];
     $semanticPages = load_json($semanticFile, ['pages' => []])['pages'] ?? [];
 
     $recentChanges = fetch_json(
@@ -431,7 +469,7 @@ data:
     }
 
     $ordered = [];
-    foreach ([$changedPages, $hotPages, $semanticPages, $seedPages] as $group) {
+    foreach ([$changedPages, $largestPages, $hotPages, $semanticPages, $seedPages] as $group) {
         foreach ($group as $url) {
             if (!isset($ordered[$url]) && eligible_warm_path($url)) {
                 $ordered[$url] = true;

@@ -41,6 +41,8 @@ spec:
                   value: /warm-cache/access.log
                 - name: ACCESS_LOG_TAIL
                   value: "{{ .Values.cacheWarmer.accessLogTail }}"
+                - name: BIGGEST_WIKIS_LIMIT
+                  value: "{{ .Values.cacheWarmer.biggestWikisLimit }}"
                 - name: HOT_PAGES_LIMIT
                   value: "{{ .Values.cacheWarmer.hotPagesLimit }}"
                 - name: SEMANTIC_DISCOVERY_LIMIT
