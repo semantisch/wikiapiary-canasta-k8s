@@ -8,6 +8,7 @@ image:
 
 domains:
   - wikiapiary.dobriy.ai
+  - dev.wikiapiary.com
 
 nodeSelector:
   kubernetes.io/hostname: dobriyai-hosting-2
@@ -432,7 +433,7 @@ configData:
     Caddyfile: |
       import /etc/caddy/Caddyfile.global
 
-      http://wikiapiary.dobriy.ai {
+      http://wikiapiary.dobriy.ai, http://dev.wikiapiary.com {
           import /etc/caddy/Caddyfile.site
           reverse_proxy varnish:80
 
