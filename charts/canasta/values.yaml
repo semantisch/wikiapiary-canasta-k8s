@@ -103,6 +103,10 @@ jobrunner:
       cpu: 500m
       memory: 512Mi
 
+# Mail transport
+mail:
+  existingSecret: ""
+
 # Ingress
 ingress:
   enabled: true

@@ -74,6 +74,9 @@ jobrunner:
       cpu: 1000m
       memory: 2Gi
 
+mail:
+  existingSecret: wikiapiary-mail
+
 extensionOverrides:
   enabled: false
 
@@ -223,6 +226,38 @@ configData:
       $wgMaxShellMemory = 524288;
       $wgRequestTimeLimit = 300;
       $wgCompressRevisions = true;
+    settings--global--00Mail.php: |
+      <?php
+      $mailFrom = getenv( 'MW_MAIL_FROM' ) ?: '';
+      $mailReplyTo = getenv( 'MW_MAIL_REPLYTO' ) ?: $mailFrom;
+      if ( $mailFrom !== '' ) {
+          $wgEmergencyContact = $mailFrom;
+          $wgPasswordSender = $mailFrom;
+          $wgNoReplyAddress = $mailReplyTo !== '' ? $mailReplyTo : $mailFrom;
+      }
+      $smtpHost = getenv( 'MW_SMTP_HOST' ) ?: '';
+      if ( $smtpHost !== '' ) {
+          $wgSMTP = [
+              'host' => $smtpHost,
+              'IDHost' => getenv( 'MW_SMTP_IDHOST' ) ?: ( parse_url( $wgServer, PHP_URL_HOST ) ?: 'wikiapiary.dobriy.ai' ),
+              'port' => (int)( getenv( 'MW_SMTP_PORT' ) ?: '25' ),
+              'auth' => filter_var( getenv( 'MW_SMTP_AUTH' ) ?: 'true', FILTER_VALIDATE_BOOLEAN ),
+              'username' => getenv( 'MW_SMTP_USERNAME' ) ?: null,
+              'password' => getenv( 'MW_SMTP_PASSWORD' ) ?: null,
+          ];
+          if ( getenv( 'MW_SMTP_STARTTLS' ) !== false && getenv( 'MW_SMTP_STARTTLS' ) !== '' ) {
+              $wgSMTP['starttls'] = filter_var( getenv( 'MW_SMTP_STARTTLS' ), FILTER_VALIDATE_BOOLEAN );
+          }
+          if ( filter_var( getenv( 'MW_SMTP_TLS_INSECURE' ) ?: 'false', FILTER_VALIDATE_BOOLEAN ) ) {
+              $wgSMTP['socket_options'] = [
+                  'ssl' => [
+                      'verify_peer' => false,
+                      'verify_peer_name' => false,
+                      'allow_self_signed' => true,
+                  ],
+              ];
+          }
+      }
     settings--global--01Namespaces.php: |
       <?php
       define( "NS_EXTENSION", 800 );

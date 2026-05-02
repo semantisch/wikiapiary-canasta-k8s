@@ -107,6 +107,11 @@ spec:
             - configMapRef:
                 name: {{ include "canasta.fullname" . }}-env
                 optional: true
+            {{- if .Values.mail.existingSecret }}
+            - secretRef:
+                name: {{ .Values.mail.existingSecret }}
+                optional: true
+            {{- end }}
           env:
             {{- if .Values.domains }}
             - name: MW_SITE_SERVER
