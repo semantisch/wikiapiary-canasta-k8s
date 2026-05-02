@@ -71,6 +71,12 @@ sub vcl_recv {
         return (pass);
     } /* Not cacheable by default */
 
+    # At this point the request is anonymous, so strip any unrelated cookies
+    # to avoid fragmenting the shared cache on Cookie variations.
+    if (req.http.Cookie) {
+        unset req.http.Cookie;
+    }
+
     # Pass anything other than GET and HEAD directly.
     if (req.method != "GET" && req.method != "HEAD") {
         return (pass);
@@ -149,6 +155,17 @@ sub vcl_backend_response {
 sub vcl_deliver {
     if (resp.http.Cache-Control ~ "s-maxage") {
         set resp.http.Cache-Control = "public, max-age=60, stale-while-revalidate=300, stale-if-error=86400";
+
+        # We strip anonymous cookies before hashing, so don't advertise Cookie
+        # as a Vary dimension for public HTML responses.
+        if (resp.http.Vary) {
+            set resp.http.Vary = regsub(resp.http.Vary, "^Cookie,? ?", "");
+            set resp.http.Vary = regsub(resp.http.Vary, ", ?Cookie$", "");
+            set resp.http.Vary = regsuball(resp.http.Vary, ", ?Cookie, ?", ", ");
+            if (resp.http.Vary == "") {
+                unset resp.http.Vary;
+            }
+        }
     }
 }
 
