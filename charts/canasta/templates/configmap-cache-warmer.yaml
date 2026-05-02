@@ -108,7 +108,17 @@ data:
     function discover_seed_pages($siteServer, $timeout) {
         $html = fetch_text($siteServer . '/wiki/Main_Page', $timeout);
         $urls = ['/wiki/Main_Page'];
-        if ($html !== '' && preg_match('/<ul id="top-bar-left".*?<\/ul>/s', $html, $match)) {
+        if ($html === '') {
+            return $urls;
+        }
+
+        foreach ([
+            '/<ul id="top-bar-left".*?<\/ul>/s',
+            '/<div id="mw-content-text".*?<\/div>\s*<\/div>/s'
+        ] as $pattern) {
+            if (!preg_match($pattern, $html, $match)) {
+                continue;
+            }
             if (preg_match_all('/href="([^"]+)"/', $match[0], $hrefs)) {
                 foreach ($hrefs[1] as $href) {
                     if (strpos($href, '/wiki/') === 0 && eligible_warm_path($href)) {
@@ -117,6 +127,7 @@ data:
                 }
             }
         }
+
         $urls = array_values(array_unique($urls));
         sort($urls);
         return $urls;
