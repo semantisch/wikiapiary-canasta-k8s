@@ -40,6 +40,8 @@ db:
   enabled: true
   storage: 220Gi
   storageClass: local-path
+  hostOverride: 10.43.137.104
+  portOverride: "3306"
   resources:
     requests:
       cpu: 500m
@@ -49,7 +51,18 @@ db:
       memory: 16Gi
 
 elasticsearch:
-  enabled: false
+  enabled: true
+  image: docker.elastic.co/elasticsearch/elasticsearch:7.10.2
+  storage: 40Gi
+  storageClass: local-path
+  javaOpts: "-Xms2g -Xmx2g"
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2Gi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
 
 jobrunner:
   enabled: true
@@ -120,11 +133,24 @@ configData:
       PHP_UPLOAD_MAX_FILESIZE=100M
       PHP_POST_MAX_SIZE=100M
       PHP_MAX_INPUT_VARS=2000
-      CANASTA_ENABLE_ELASTICSEARCH=false
+      CANASTA_ENABLE_ELASTICSEARCH=true
       CANASTA_ENABLE_VARNISH=true
       CANASTA_ENABLE_WIKI_DIRECTORY=false
       MW_SITEMAP_PAUSE_DAYS=1
       USE_EXTERNAL_DB=false
+    .smw.json: |
+      {
+        "main": {
+          "upgrade_key": "d0fcfb45b30e3258611579e7ab8e39634d6f3cf6",
+          "latest_version": "6.0.0",
+          "incomplete_tasks": []
+        },
+        "mw_wikiapiary": {
+          "upgrade_key": "d0fcfb45b30e3258611579e7ab8e39634d6f3cf6",
+          "latest_version": "6.0.0",
+          "incomplete_tasks": []
+        }
+      }
     wikis.yaml: |
       wikis:
         - id: main
@@ -340,9 +366,6 @@ configData:
       $smwgQMaxDepth = 16;
       $smwgQConceptMaxSize = 20;
       $smwgQConceptMaxDepth = 8;
-      $smwgQueryProfiler = [
-          'smwgQueryDurationEnabled' => true,
-      ];
       $smwgQueryResultCacheType = CACHE_ACCEL;
       $smwgQueryResultCacheLifetime = 60 * 60 * 24;
       $srfgArraySep = "\n";
@@ -409,6 +432,8 @@ configData:
         - Disambiguator
         - MagicNoCache
         - ExternalData
+        - Elastica
+        - CirrusSearch
         - SemanticMediaWiki
         - SemanticResultFormats
         - SemanticExtraSpecialProperties
@@ -419,16 +444,34 @@ configData:
       skins:
         - foreground
         - chameleon
-    settings--wikis--mw_wikiapiary--99LegacyUploads.php: |
+    settings--wikis--main--99LegacyUploads.php: |
       <?php
       $wgUploadDirectory = "{$IP}/images/wikiapiary";
       $wgUploadPath = "/w/images/wikiapiary";
+    settings--global--06Search.php: |
+      <?php
+      $wgSearchType = 'CirrusSearch';
+      $wgCirrusSearchServers = [ '10.42.1.67' ];
+      $wgDisableSearchUpdate = false;
+      $wgSearchSuggestCacheExpiry = 60 * 60;
+    settings--wikis--main--99DbOverride.php: |
+      <?php
+      $wgDBtype = 'mysql';
+      $wgDBserver = '10.43.137.104';
+      $wgDBname = 'mw_wikiapiary';
+      $wgDBuser = 'mw_wikiapiary';
+      $wgDBpassword = getenv( 'MYSQL_PASSWORD' ) ?: '';
+      $edgDBServer['apiary'] = '10.43.137.104';
+      $edgDBServerType['apiary'] = 'mysql';
+      $edgDBName['apiary'] = 'apiary';
+      $edgDBUser['apiary'] = 'apiary';
+      $edgDBPass['apiary'] = getenv( 'MYSQL_PASSWORD' ) ?: '';
   env:
     CADDY_AUTO_HTTPS: "off"
     PHP_UPLOAD_MAX_FILESIZE: "100M"
     PHP_POST_MAX_SIZE: "100M"
     PHP_MAX_INPUT_VARS: "2000"
-    CANASTA_ENABLE_ELASTICSEARCH: "false"
+    CANASTA_ENABLE_ELASTICSEARCH: "true"
     MW_SITEMAP_PAUSE_DAYS: "1"
   caddy:
     Caddyfile: |

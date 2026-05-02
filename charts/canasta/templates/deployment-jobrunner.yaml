@@ -36,6 +36,9 @@ spec:
               cp /configmap-flat/.env /config/.env 2>/dev/null || true
               cp /configmap-flat/wikis.yaml /config/wikis.yaml 2>/dev/null || true
               cp /configmap-flat/composer.local.json /config/composer.local.json 2>/dev/null || true
+              mkdir -p /config/persistent
+              cp /configmap-flat/composer-deps-hash /config/persistent/.composer-deps-hash 2>/dev/null || true
+              cp /configmap-flat/.smw.json /config/persistent/.smw.json 2>/dev/null || true
               for f in /configmap-flat/settings--*; do
                 [ -f "$f" ] || continue
                 base=$(basename "$f")
@@ -43,6 +46,9 @@ spec:
                 mkdir -p "/config/$(dirname "$relpath")"
                 cp "$f" "/config/$relpath"
               done
+          env:
+            - name: MW_AUTOUPDATE
+              value: "false"
           volumeMounts:
             - name: web-configmap
               mountPath: /configmap-flat
@@ -71,9 +77,9 @@ spec:
                 optional: true
           env:
             - name: MYSQL_HOST
-              value: {{ if .Values.db.enabled }}"db"{{ else }}"{{ .Values.externalDatabase.host }}"{{ end }}
+              value: {{ if .Values.db.hostOverride }}{{ .Values.db.hostOverride | quote }}{{ else if .Values.db.enabled }}"db"{{ else }}"{{ .Values.externalDatabase.host }}"{{ end }}
             - name: MYSQL_PORT
-              value: {{ if .Values.db.enabled }}"3306"{{ else }}"{{ .Values.externalDatabase.port }}"{{ end }}
+              value: {{ if .Values.db.portOverride }}{{ .Values.db.portOverride | quote }}{{ else if .Values.db.enabled }}"3306"{{ else }}"{{ .Values.externalDatabase.port }}"{{ end }}
             - name: MYSQL_USER
               value: {{ if .Values.db.enabled }}"root"{{ else }}"{{ .Values.externalDatabase.user }}"{{ end }}
             - name: MYSQL_SSL
@@ -90,6 +96,8 @@ spec:
                 secretKeyRef:
                   name: {{ include "canasta.mwSecretName" . }}
                   key: MW_SECRET_KEY
+            - name: MW_AUTOUPDATE
+              value: "false"
           volumeMounts:
             - name: config
               mountPath: /mediawiki/config

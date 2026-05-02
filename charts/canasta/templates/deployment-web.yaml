@@ -40,6 +40,9 @@ spec:
               cp /configmap-flat/.env /config/.env 2>/dev/null || true
               cp /configmap-flat/wikis.yaml /config/wikis.yaml 2>/dev/null || true
               cp /configmap-flat/composer.local.json /config/composer.local.json 2>/dev/null || true
+              mkdir -p /config/persistent
+              cp /configmap-flat/composer-deps-hash /config/persistent/.composer-deps-hash 2>/dev/null || true
+              cp /configmap-flat/.smw.json /config/persistent/.smw.json 2>/dev/null || true
               # Reconstruct settings directory tree from double-dash-encoded keys
               for f in /configmap-flat/settings--*; do
                 [ -f "$f" ] || continue
@@ -49,6 +52,15 @@ spec:
                 mkdir -p "/config/$(dirname "$relpath")"
                 cp "$f" "/config/$relpath"
               done
+              cat > /override-bin/getent <<'EOF'
+              #!/bin/sh
+              if [ "$1" = "hosts" ] && [ "$2" = "gateway.docker.internal" ]; then
+                echo "172.17.0.1 gateway.docker.internal"
+                exit 0
+              fi
+              exec /usr/bin/getent "$@"
+              EOF
+              chmod +x /override-bin/getent
               echo "Config assembled"
           volumeMounts:
             - name: web-configmap
@@ -56,13 +68,15 @@ spec:
               readOnly: true
             - name: config
               mountPath: /config
+            - name: override-bin
+              mountPath: /override-bin
         - name: wait-for-db
           image: busybox:1.36
           command:
             - sh
             - -c
             - |
-              until ip=$(nslookup db 2>/dev/null | awk '/^Address:/{ a=$2 } END{ print a }') && [ -n "$ip" ] && nc -z "$ip" 3306; do
+              until nc -z {{ default "db" .Values.db.hostOverride | quote }} {{ default "3306" .Values.db.portOverride | quote }}; do
                 sleep 2
               done
       containers:
@@ -101,9 +115,9 @@ spec:
               value: "{{ index .Values.domains 0 }}"
             {{- end }}
             - name: MYSQL_HOST
-              value: {{ if .Values.db.enabled }}"db"{{ else }}"{{ .Values.externalDatabase.host }}"{{ end }}
+              value: {{ if .Values.db.hostOverride }}{{ .Values.db.hostOverride | quote }}{{ else if .Values.db.enabled }}"db"{{ else }}"{{ .Values.externalDatabase.host }}"{{ end }}
             - name: MYSQL_PORT
-              value: {{ if .Values.db.enabled }}"3306"{{ else }}"{{ .Values.externalDatabase.port }}"{{ end }}
+              value: {{ if .Values.db.portOverride }}{{ .Values.db.portOverride | quote }}{{ else if .Values.db.enabled }}"3306"{{ else }}"{{ .Values.externalDatabase.port }}"{{ end }}
             - name: MYSQL_USER
               value: {{ if .Values.db.enabled }}"root"{{ else }}"{{ .Values.externalDatabase.user }}"{{ end }}
             - name: MYSQL_SSL
@@ -145,6 +159,8 @@ spec:
               mountPath: /var/www/mediawiki/w/user-skins
             - name: public-assets
               mountPath: /mediawiki/public_assets
+            - name: override-bin
+              mountPath: /override-bin
           {{- with .Values.web.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
@@ -175,6 +191,8 @@ spec:
             optional: true
         - name: config
           emptyDir: {}
+        - name: override-bin
+          emptyDir: {}
         - name: images
           persistentVolumeClaim:
             claimName: {{ include "canasta.fullname" . }}-images
@@ -192,3 +210,7 @@ spec:
         - name: public-assets
           persistentVolumeClaim:
             claimName: {{ include "canasta.fullname" . }}-public-assets
+      hostAliases:
+        - ip: "172.17.0.1"
+          hostnames:
+            - gateway.docker.internal

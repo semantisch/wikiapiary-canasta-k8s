@@ -60,6 +60,8 @@ db:
   image: mariadb:11.4
   storage: 10Gi
   storageClass: ""
+  hostOverride: ""
+  portOverride: ""
   resources:
     requests:
       cpu: 100m
@@ -78,9 +80,10 @@ externalDatabase:
 # Elasticsearch (optional)
 elasticsearch:
   enabled: false
-  image: elasticsearch:7.17.9
+  image: docker.elastic.co/elasticsearch/elasticsearch:7.10.2
   storage: 5Gi
   storageClass: ""
+  javaOpts: "-Xms512m -Xmx512m"
   resources:
     requests:
       cpu: 250m
