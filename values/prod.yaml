@@ -56,7 +56,6 @@ cacheWarmer:
   semanticSetLimit: 250
   recentChangesLimit: 30
   warmPagesLimit: 36
-  refreshMaxAgeSeconds: 900
   requestTimeoutSeconds: 15
   resources:
     requests:

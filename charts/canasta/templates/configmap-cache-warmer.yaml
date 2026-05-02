@@ -298,11 +298,8 @@ data:
     $seedFile = $baseDir . '/seed-pages.json';
     $reportFile = $baseDir . '/warm-run.json';
     $siteServer = rtrim(getenv('SITE_SERVER') ?: 'https://wikiapiary.dobriy.ai', '/');
-    $siteHost = getenv('SITE_HOST') ?: parse_url($siteServer, PHP_URL_HOST);
-    $varnishPurgeUrl = rtrim(getenv('VARNISH_PURGE_URL') ?: 'http://varnish', '/');
     $recentChangesLimit = max(5, (int)(getenv('RECENT_CHANGES_LIMIT') ?: 25));
     $warmPagesLimit = max(5, (int)(getenv('WARM_PAGES_LIMIT') ?: 30));
-    $refreshMaxAgeSeconds = max(60, (int)(getenv('REFRESH_MAX_AGE_SECONDS') ?: 900));
     $requestTimeout = max(3, (int)(getenv('REQUEST_TIMEOUT_SECONDS') ?: 15));
 
     function load_json($path, $default) {
@@ -414,17 +411,6 @@ data:
         ];
     }
 
-    function purge_url($purgeBaseUrl, $siteHost, $path, $timeout) {
-        return request_url(
-            $purgeBaseUrl . $path,
-            $timeout,
-            'PURGE',
-            [
-                'Host: ' . $siteHost
-            ]
-        );
-    }
-
     $seedPages = load_json($seedFile, ['pages' => []])['pages'] ?? [];
     $hotPages = load_json($hotFile, ['pages' => []])['pages'] ?? [];
     $semanticPages = load_json($semanticFile, ['pages' => []])['pages'] ?? [];
@@ -456,31 +442,23 @@ data:
 
     $results = [];
     foreach ($targets as $path) {
-        $probe = request_url($siteServer . $path, $requestTimeout);
-        $result = [
+        $refresh = request_url(
+            $siteServer . $path,
+            $requestTimeout,
+            'GET',
+            [
+                'X-WikiApiary-Warm-Refresh: 1'
+            ]
+        );
+        $results[] = [
             'url' => $siteServer . $path,
             'path' => $path,
-            'probe' => $probe,
-            'action' => 'probe'
+            'refresh' => $refresh,
+            'action' => 'refresh',
+            'ok' => !empty($refresh['ok']),
+            'seconds' => $refresh['seconds'] ?? null,
+            'ageAfter' => $refresh['age'] ?? null
         ];
-
-        if (!$probe['ok'] || $probe['age'] === null || $probe['age'] >= $refreshMaxAgeSeconds) {
-            $purge = purge_url($varnishPurgeUrl, $siteHost, $path, $requestTimeout);
-            usleep(150000);
-            $refresh = request_url($siteServer . $path, $requestTimeout);
-            $result['action'] = 'purge_refresh';
-            $result['purge'] = $purge;
-            $result['refresh'] = $refresh;
-            $result['ok'] = !empty($refresh['ok']);
-            $result['seconds'] = round(($probe['seconds'] ?? 0) + ($purge['seconds'] ?? 0) + ($refresh['seconds'] ?? 0), 3);
-            $result['ageAfter'] = $refresh['age'] ?? null;
-        } else {
-            $result['ok'] = !empty($probe['ok']);
-            $result['seconds'] = $probe['seconds'] ?? null;
-            $result['ageAfter'] = $probe['age'] ?? null;
-        }
-
-        $results[] = $result;
         usleep(150000);
     }
 
