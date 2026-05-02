@@ -147,6 +147,13 @@ sub vcl_backend_response {
           return (deliver);
         }
 
+        # Keep normal wiki pages around much longer at the proxy layer.
+        # Freshness still comes from explicit purges on edit, so a longer TTL
+        # helps hot landing/report pages stay warm instead of going cold again.
+        if (bereq.url ~ "^/wiki/" && bereq.url !~ "^/wiki/Special:" && beresp.ttl < 24h) {
+          set beresp.ttl = 24h;
+        }
+
         return (deliver);
 }
 

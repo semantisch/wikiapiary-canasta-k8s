@@ -33,12 +33,18 @@ spec:
               env:
                 - name: SITE_SERVER
                   value: "https://{{ index .Values.domains 0 }}"
+                - name: SITE_HOST
+                  value: "{{ index .Values.domains 0 }}"
+                - name: VARNISH_PURGE_URL
+                  value: "http://varnish"
                 - name: WARM_CACHE_DIR
                   value: /warm-cache
                 - name: RECENT_CHANGES_LIMIT
                   value: "{{ .Values.cacheWarmer.recentChangesLimit }}"
                 - name: WARM_PAGES_LIMIT
                   value: "{{ .Values.cacheWarmer.warmPagesLimit }}"
+                - name: REFRESH_MAX_AGE_SECONDS
+                  value: "{{ .Values.cacheWarmer.refreshMaxAgeSeconds }}"
                 - name: REQUEST_TIMEOUT_SECONDS
                   value: "{{ .Values.cacheWarmer.requestTimeoutSeconds }}"
               volumeMounts:

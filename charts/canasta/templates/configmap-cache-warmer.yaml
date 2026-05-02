@@ -298,8 +298,11 @@ data:
     $seedFile = $baseDir . '/seed-pages.json';
     $reportFile = $baseDir . '/warm-run.json';
     $siteServer = rtrim(getenv('SITE_SERVER') ?: 'https://wikiapiary.dobriy.ai', '/');
+    $siteHost = getenv('SITE_HOST') ?: parse_url($siteServer, PHP_URL_HOST);
+    $varnishPurgeUrl = rtrim(getenv('VARNISH_PURGE_URL') ?: 'http://varnish', '/');
     $recentChangesLimit = max(5, (int)(getenv('RECENT_CHANGES_LIMIT') ?: 25));
     $warmPagesLimit = max(5, (int)(getenv('WARM_PAGES_LIMIT') ?: 30));
+    $refreshMaxAgeSeconds = max(60, (int)(getenv('REFRESH_MAX_AGE_SECONDS') ?: 900));
     $requestTimeout = max(3, (int)(getenv('REQUEST_TIMEOUT_SECONDS') ?: 15));
 
     function load_json($path, $default) {
@@ -357,17 +360,31 @@ data:
         return is_array($json) ? $json : [];
     }
 
-    function warm_url($fullUrl, $timeout) {
+    function parse_response_headers($headers) {
+        $parsed = [];
+        foreach ($headers as $header) {
+            $pos = strpos($header, ':');
+            if ($pos === false) {
+                continue;
+            }
+            $name = strtolower(trim(substr($header, 0, $pos)));
+            $value = trim(substr($header, $pos + 1));
+            $parsed[$name][] = $value;
+        }
+        return $parsed;
+    }
+
+    function request_url($fullUrl, $timeout, $method = 'GET', array $extraHeaders = []) {
         $ctx = stream_context_create([
             'http' => [
-                'method' => 'GET',
+                'method' => $method,
                 'timeout' => $timeout,
                 'ignore_errors' => true,
-                'header' => implode("\r\n", [
+                'header' => implode("\r\n", array_merge([
                     'User-Agent: WikiApiaryCacheWarmer/1.0',
                     'Accept: text/html,application/xhtml+xml',
                     'Accept-Language: en'
-                ])
+                ], $extraHeaders))
             ],
             'ssl' => [
                 'verify_peer' => false,
@@ -381,12 +398,31 @@ data:
         if (isset($http_response_header[0]) && preg_match('#\s(\d{3})\s#', $http_response_header[0], $m)) {
             $status = (int)$m[1];
         }
+        $headers = parse_response_headers($http_response_header ?? []);
+        $age = null;
+        if (!empty($headers['age'][0]) && ctype_digit((string)$headers['age'][0])) {
+            $age = (int)$headers['age'][0];
+        }
         return [
             'url' => $fullUrl,
             'status' => $status,
             'ok' => $body !== false && $status >= 200 && $status < 400,
-            'seconds' => round($elapsed, 3)
+            'seconds' => round($elapsed, 3),
+            'age' => $age,
+            'via' => $headers['via'] ?? [],
+            'cacheControl' => $headers['cache-control'][0] ?? null,
         ];
+    }
+
+    function purge_url($purgeBaseUrl, $siteHost, $path, $timeout) {
+        return request_url(
+            $purgeBaseUrl . $path,
+            $timeout,
+            'PURGE',
+            [
+                'Host: ' . $siteHost
+            ]
+        );
     }
 
     $seedPages = load_json($seedFile, ['pages' => []])['pages'] ?? [];
@@ -420,7 +456,31 @@ data:
 
     $results = [];
     foreach ($targets as $path) {
-        $results[] = warm_url($siteServer . $path, $requestTimeout);
+        $probe = request_url($siteServer . $path, $requestTimeout);
+        $result = [
+            'url' => $siteServer . $path,
+            'path' => $path,
+            'probe' => $probe,
+            'action' => 'probe'
+        ];
+
+        if (!$probe['ok'] || $probe['age'] === null || $probe['age'] >= $refreshMaxAgeSeconds) {
+            $purge = purge_url($varnishPurgeUrl, $siteHost, $path, $requestTimeout);
+            usleep(150000);
+            $refresh = request_url($siteServer . $path, $requestTimeout);
+            $result['action'] = 'purge_refresh';
+            $result['purge'] = $purge;
+            $result['refresh'] = $refresh;
+            $result['ok'] = !empty($refresh['ok']);
+            $result['seconds'] = round(($probe['seconds'] ?? 0) + ($purge['seconds'] ?? 0) + ($refresh['seconds'] ?? 0), 3);
+            $result['ageAfter'] = $refresh['age'] ?? null;
+        } else {
+            $result['ok'] = !empty($probe['ok']);
+            $result['seconds'] = $probe['seconds'] ?? null;
+            $result['ageAfter'] = $probe['age'] ?? null;
+        }
+
+        $results[] = $result;
         usleep(150000);
     }
 
