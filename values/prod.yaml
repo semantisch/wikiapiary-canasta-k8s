@@ -46,6 +46,25 @@ redis:
       cpu: 500m
       memory: 1Gi
 
+cacheWarmer:
+  enabled: true
+  discoverSchedule: "*/20 * * * *"
+  warmSchedule: "*/5 * * * *"
+  accessLogTail: 6000
+  hotPagesLimit: 100
+  semanticDiscoveryLimit: 50
+  semanticSetLimit: 250
+  recentChangesLimit: 30
+  warmPagesLimit: 36
+  requestTimeoutSeconds: 15
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
 db:
   enabled: true
   storage: 220Gi
@@ -141,6 +160,10 @@ persistence:
     accessMode: ReadWriteOnce
   publicAssets:
     size: 1Gi
+    storageClass: local-path
+    accessMode: ReadWriteOnce
+  cacheWarm:
+    size: 512Mi
     storageClass: local-path
     accessMode: ReadWriteOnce
 

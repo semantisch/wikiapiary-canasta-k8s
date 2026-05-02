@@ -65,6 +65,27 @@ redis:
       cpu: 250m
       memory: 512Mi
 
+# Cache warmer
+cacheWarmer:
+  enabled: false
+  image: ""
+  discoverSchedule: "*/20 * * * *"
+  warmSchedule: "*/5 * * * *"
+  accessLogTail: 4000
+  hotPagesLimit: 80
+  semanticDiscoveryLimit: 40
+  semanticSetLimit: 200
+  recentChangesLimit: 25
+  warmPagesLimit: 30
+  requestTimeoutSeconds: 15
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 512Mi
+
 # Database (MariaDB)
 # Set db.enabled=false and externalDatabase settings to use an external DB.
 db:
@@ -166,6 +187,10 @@ persistence:
     accessMode: ReadWriteOnce
   publicAssets:
     size: 1Gi
+    storageClass: ""
+    accessMode: ReadWriteOnce
+  cacheWarm:
+    size: 256Mi
     storageClass: ""
     accessMode: ReadWriteOnce
 

@@ -49,6 +49,8 @@ spec:
               readOnly: true
             - name: caddy-data
               mountPath: /data
+            - name: cache-warm
+              mountPath: /var/log/caddy
             - name: images
               mountPath: /srv/wiki-images
               readOnly: true
@@ -70,6 +72,9 @@ spec:
             name: {{ include "canasta.fullname" . }}-caddy-config
         - name: caddy-data
           emptyDir: {}
+        - name: cache-warm
+          persistentVolumeClaim:
+            claimName: {{ include "canasta.fullname" . }}-cache-warm
         - name: images
           persistentVolumeClaim:
             claimName: {{ include "canasta.fullname" . }}-images

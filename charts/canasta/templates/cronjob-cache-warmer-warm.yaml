@@ -1,0 +1,62 @@
+{{- if .Values.cacheWarmer.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "canasta.fullname" . }}-cache-warm
+  namespace: {{ include "canasta.namespace" . }}
+  labels:
+    {{- include "canasta.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cache-warmer
+spec:
+  schedule: {{ .Values.cacheWarmer.warmSchedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            {{- include "canasta.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: cache-warmer
+        spec:
+          restartPolicy: Never
+          {{- with .Values.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          containers:
+            - name: warm
+              image: {{ .Values.cacheWarmer.image | default (include "canasta.image" .) }}
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command: ["/bin/sh", "/scripts/run-warm.sh"]
+              env:
+                - name: SITE_SERVER
+                  value: "https://{{ index .Values.domains 0 }}"
+                - name: WARM_CACHE_DIR
+                  value: /warm-cache
+                - name: RECENT_CHANGES_LIMIT
+                  value: "{{ .Values.cacheWarmer.recentChangesLimit }}"
+                - name: WARM_PAGES_LIMIT
+                  value: "{{ .Values.cacheWarmer.warmPagesLimit }}"
+                - name: REQUEST_TIMEOUT_SECONDS
+                  value: "{{ .Values.cacheWarmer.requestTimeoutSeconds }}"
+              volumeMounts:
+                - name: scripts
+                  mountPath: /scripts
+                  readOnly: true
+                - name: cache-warm
+                  mountPath: /warm-cache
+              {{- with .Values.cacheWarmer.resources }}
+              resources:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+          volumes:
+            - name: scripts
+              configMap:
+                name: {{ include "canasta.fullname" . }}-cache-warmer
+                defaultMode: 0755
+            - name: cache-warm
+              persistentVolumeClaim:
+                claimName: {{ include "canasta.fullname" . }}-cache-warm
+{{- end }}

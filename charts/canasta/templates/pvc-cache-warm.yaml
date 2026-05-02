@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "canasta.fullname" . }}-cache-warm
+  namespace: {{ include "canasta.namespace" . }}
+  labels:
+    {{- include "canasta.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.persistence.cacheWarm.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.cacheWarm.size }}
+  {{- if .Values.persistence.cacheWarm.storageClass }}
+  storageClassName: {{ .Values.persistence.cacheWarm.storageClass | quote }}
+  {{- end }}

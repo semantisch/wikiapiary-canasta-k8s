@@ -1,0 +1,333 @@
+{{- if .Values.cacheWarmer.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "canasta.fullname" . }}-cache-warmer
+  namespace: {{ include "canasta.namespace" . }}
+  labels:
+    {{- include "canasta.labels" . | nindent 4 }}
+data:
+  discover.php: |
+    <?php
+    error_reporting(E_ALL);
+    date_default_timezone_set('UTC');
+
+    $baseDir = getenv('WARM_CACHE_DIR') ?: '/warm-cache';
+    $accessLog = getenv('ACCESS_LOG_FILE') ?: $baseDir . '/access.log';
+    $hotFile = $baseDir . '/hot-pages.json';
+    $semanticFile = $baseDir . '/semantic-pages.json';
+    $seedFile = $baseDir . '/seed-pages.json';
+    $stateFile = $baseDir . '/discovery-state.json';
+    $siteServer = rtrim(getenv('SITE_SERVER') ?: 'https://wikiapiary.dobriy.ai', '/');
+    $siteHost = getenv('SITE_HOST') ?: parse_url($siteServer, PHP_URL_HOST);
+    $accessTail = max(100, (int)(getenv('ACCESS_LOG_TAIL') ?: 4000));
+    $hotLimit = max(10, (int)(getenv('HOT_PAGES_LIMIT') ?: 80));
+    $semanticLimit = max(10, (int)(getenv('SEMANTIC_DISCOVERY_LIMIT') ?: 40));
+    $semanticSetLimit = max(20, (int)(getenv('SEMANTIC_SET_LIMIT') ?: 200));
+    $requestTimeout = max(3, (int)(getenv('REQUEST_TIMEOUT_SECONDS') ?: 15));
+
+    @mkdir($baseDir, 0775, true);
+
+    function atomic_write_json($path, $data) {
+        $tmp = $path . '.tmp';
+        file_put_contents($tmp, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        rename($tmp, $path);
+    }
+
+    function load_json($path, $default) {
+        if (!is_file($path)) {
+            return $default;
+        }
+        $data = json_decode((string)file_get_contents($path), true);
+        return is_array($data) ? $data : $default;
+    }
+
+    function tail_lines($path, $limit) {
+        if (!is_file($path)) {
+            return [];
+        }
+        $lines = [];
+        $fp = fopen($path, 'r');
+        if (!$fp) {
+            return [];
+        }
+        while (($line = fgets($fp)) !== false) {
+            $lines[] = rtrim($line, "\r\n");
+            if (count($lines) > $limit) {
+                array_shift($lines);
+            }
+        }
+        fclose($fp);
+        return $lines;
+    }
+
+    function should_skip_ua($ua) {
+        if (!is_string($ua) || $ua === '') {
+            return false;
+        }
+        return (bool)preg_match('/bot|crawl|spider|slurp|GPTBot|GoogleOther|bingbot|Ahrefs|Semrush/i', $ua);
+    }
+
+    function wiki_path_from_title($title) {
+        $title = str_replace(' ', '_', $title);
+        $encoded = rawurlencode($title);
+        return '/wiki/' . str_replace(['%2F', '%3A'], ['/', ':'], $encoded);
+    }
+
+    function fetch_text($url, $timeout) {
+        $ctx = stream_context_create([
+            'http' => [
+                'timeout' => $timeout,
+                'ignore_errors' => true,
+                'user_agent' => 'WikiApiaryCacheDiscovery/1.0'
+            ],
+            'ssl' => [
+                'verify_peer' => false,
+                'verify_peer_name' => false
+            ]
+        ]);
+        $data = @file_get_contents($url, false, $ctx);
+        return $data === false ? '' : $data;
+    }
+
+    function discover_seed_pages($siteServer, $timeout) {
+        $html = fetch_text($siteServer . '/wiki/Main_Page', $timeout);
+        $urls = ['/wiki/Main_Page'];
+        if ($html !== '' && preg_match('/<ul id="top-bar-left".*?<\/ul>/s', $html, $match)) {
+            if (preg_match_all('/href="([^"]+)"/', $match[0], $hrefs)) {
+                foreach ($hrefs[1] as $href) {
+                    if (strpos($href, '/wiki/') === 0) {
+                        $urls[] = html_entity_decode($href, ENT_QUOTES);
+                    }
+                }
+            }
+        }
+        $urls = array_values(array_unique($urls));
+        sort($urls);
+        return $urls;
+    }
+
+    $seedPages = discover_seed_pages($siteServer, $requestTimeout);
+    atomic_write_json($seedFile, [
+        'generatedAt' => gmdate('c'),
+        'pages' => $seedPages
+    ]);
+
+    $counts = [];
+    foreach (tail_lines($accessLog, $accessTail) as $line) {
+        $entry = json_decode($line, true);
+        if (!is_array($entry)) {
+            continue;
+        }
+        $request = $entry['request'] ?? [];
+        $uri = $request['uri'] ?? '';
+        $method = strtoupper($request['method'] ?? '');
+        $host = $request['host'] ?? '';
+        $status = (int)($entry['status'] ?? 0);
+        $headers = $request['headers'] ?? [];
+        $ua = '';
+        if (isset($headers['User-Agent'][0])) {
+            $ua = $headers['User-Agent'][0];
+        }
+
+        if ($host !== $siteHost || ($method !== 'GET' && $method !== 'HEAD') || $status < 200 || $status >= 400) {
+            continue;
+        }
+        if (should_skip_ua($ua)) {
+            continue;
+        }
+        if (strpos($uri, '/wiki/') !== 0) {
+            continue;
+        }
+        if (strpos($uri, '?') !== false || strpos($uri, '#') !== false) {
+            continue;
+        }
+        if (preg_match('#^/wiki/Special:#', $uri)) {
+            continue;
+        }
+        $counts[$uri] = ($counts[$uri] ?? 0) + 1;
+    }
+
+    arsort($counts);
+    $hotPages = array_slice(array_keys($counts), 0, $hotLimit);
+    atomic_write_json($hotFile, [
+        'generatedAt' => gmdate('c'),
+        'pages' => $hotPages,
+        'scores' => array_slice($counts, 0, $hotLimit, true)
+    ]);
+
+    $semanticState = load_json($stateFile, []);
+    $knownSemantic = load_json($semanticFile, ['pages' => []]);
+    $knownMap = [];
+    foreach (($knownSemantic['pages'] ?? []) as $url) {
+        $knownMap[$url] = time();
+    }
+
+    $candidates = array_values(array_unique(array_merge($seedPages, array_slice($hotPages, 0, $semanticLimit))));
+    foreach ($candidates as $url) {
+        $title = substr($url, strlen('/wiki/'));
+        $rawUrl = $siteServer . '/wiki/' . $title . '?action=raw';
+        $raw = fetch_text($rawUrl, $requestTimeout);
+        if ($raw === '') {
+            continue;
+        }
+        if (preg_match('/#ask:|#show:|Special:Ask|format=table|format=datatable/i', $raw)) {
+            $knownMap[$url] = time();
+        }
+    }
+
+    arsort($knownMap);
+    $semanticPages = array_slice(array_keys($knownMap), 0, $semanticSetLimit);
+    atomic_write_json($semanticFile, [
+        'generatedAt' => gmdate('c'),
+        'pages' => $semanticPages
+    ]);
+    atomic_write_json($stateFile, [
+        'generatedAt' => gmdate('c')
+    ]);
+
+    echo "seeded=" . count($seedPages) . " hot=" . count($hotPages) . " semantic=" . count($semanticPages) . PHP_EOL;
+  warm.php: |
+    <?php
+    error_reporting(E_ALL);
+    date_default_timezone_set('UTC');
+
+    $baseDir = getenv('WARM_CACHE_DIR') ?: '/warm-cache';
+    $hotFile = $baseDir . '/hot-pages.json';
+    $semanticFile = $baseDir . '/semantic-pages.json';
+    $seedFile = $baseDir . '/seed-pages.json';
+    $reportFile = $baseDir . '/warm-run.json';
+    $siteServer = rtrim(getenv('SITE_SERVER') ?: 'https://wikiapiary.dobriy.ai', '/');
+    $recentChangesLimit = max(5, (int)(getenv('RECENT_CHANGES_LIMIT') ?: 25));
+    $warmPagesLimit = max(5, (int)(getenv('WARM_PAGES_LIMIT') ?: 30));
+    $requestTimeout = max(3, (int)(getenv('REQUEST_TIMEOUT_SECONDS') ?: 15));
+
+    function load_json($path, $default) {
+        if (!is_file($path)) {
+            return $default;
+        }
+        $data = json_decode((string)file_get_contents($path), true);
+        return is_array($data) ? $data : $default;
+    }
+
+    function atomic_write_json($path, $data) {
+        $tmp = $path . '.tmp';
+        file_put_contents($tmp, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        rename($tmp, $path);
+    }
+
+    function wiki_path_from_title($title) {
+        $title = str_replace(' ', '_', $title);
+        $encoded = rawurlencode($title);
+        return '/wiki/' . str_replace(['%2F', '%3A'], ['/', ':'], $encoded);
+    }
+
+    function fetch_json($url, $timeout) {
+        $ctx = stream_context_create([
+            'http' => [
+                'timeout' => $timeout,
+                'ignore_errors' => true,
+                'user_agent' => 'WikiApiaryCacheWarmer/1.0'
+            ],
+            'ssl' => [
+                'verify_peer' => false,
+                'verify_peer_name' => false
+            ]
+        ]);
+        $data = @file_get_contents($url, false, $ctx);
+        if ($data === false) {
+            return [];
+        }
+        $json = json_decode($data, true);
+        return is_array($json) ? $json : [];
+    }
+
+    function warm_url($fullUrl, $timeout) {
+        $ctx = stream_context_create([
+            'http' => [
+                'method' => 'GET',
+                'timeout' => $timeout,
+                'ignore_errors' => true,
+                'header' => implode("\r\n", [
+                    'User-Agent: WikiApiaryCacheWarmer/1.0',
+                    'Accept: text/html,application/xhtml+xml',
+                    'Accept-Language: en'
+                ])
+            ],
+            'ssl' => [
+                'verify_peer' => false,
+                'verify_peer_name' => false
+            ]
+        ]);
+        $start = microtime(true);
+        $body = @file_get_contents($fullUrl, false, $ctx);
+        $elapsed = microtime(true) - $start;
+        $status = 0;
+        if (isset($http_response_header[0]) && preg_match('#\s(\d{3})\s#', $http_response_header[0], $m)) {
+            $status = (int)$m[1];
+        }
+        return [
+            'url' => $fullUrl,
+            'status' => $status,
+            'ok' => $body !== false && $status >= 200 && $status < 400,
+            'seconds' => round($elapsed, 3)
+        ];
+    }
+
+    $seedPages = load_json($seedFile, ['pages' => []])['pages'] ?? [];
+    $hotPages = load_json($hotFile, ['pages' => []])['pages'] ?? [];
+    $semanticPages = load_json($semanticFile, ['pages' => []])['pages'] ?? [];
+
+    $recentChanges = fetch_json(
+        $siteServer . '/w/api.php?action=query&list=recentchanges&rclimit=' . $recentChangesLimit . '&rcprop=title|ids|timestamp&format=json',
+        $requestTimeout
+    );
+    $changedPages = [];
+    foreach (($recentChanges['query']['recentchanges'] ?? []) as $change) {
+        if (($change['type'] ?? '') === 'log') {
+            continue;
+        }
+        if (!isset($change['title'])) {
+            continue;
+        }
+        $changedPages[] = wiki_path_from_title($change['title']);
+    }
+
+    $ordered = [];
+    foreach ([$changedPages, $hotPages, $semanticPages, $seedPages] as $group) {
+        foreach ($group as $url) {
+            if (!isset($ordered[$url]) && strpos($url, '/wiki/') === 0) {
+                $ordered[$url] = true;
+            }
+        }
+    }
+    $targets = array_slice(array_keys($ordered), 0, $warmPagesLimit);
+
+    $results = [];
+    foreach ($targets as $path) {
+        $results[] = warm_url($siteServer . $path, $requestTimeout);
+        usleep(150000);
+    }
+
+    atomic_write_json($reportFile, [
+        'generatedAt' => gmdate('c'),
+        'targets' => $targets,
+        'results' => $results
+    ]);
+
+    $ok = 0;
+    foreach ($results as $result) {
+        if (!empty($result['ok'])) {
+            $ok++;
+        }
+    }
+    echo "warmed=" . count($results) . " ok=" . $ok . PHP_EOL;
+  run-discover.sh: |
+    #!/bin/sh
+    set -eu
+    php /scripts/discover.php
+  run-warm.sh: |
+    #!/bin/sh
+    set -eu
+    php /scripts/warm.php
+{{- end }}
