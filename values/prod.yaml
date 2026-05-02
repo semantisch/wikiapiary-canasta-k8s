@@ -49,6 +49,7 @@ redis:
 cacheWarmer:
   enabled: true
   workerEnabled: true
+  requestBaseUrl: "http://varnish"
   discoverSchedule: "*/20 * * * *"
   warmSchedule: "*/5 * * * *"
   accessLogTail: 6000
@@ -755,6 +756,15 @@ configData:
           import /etc/caddy/Caddyfile.site
           reverse_proxy varnish:80 {
               header_up Host wikiapiary.dobriy.ai
+              lb_retries 2
+              lb_try_duration 5s
+              fail_duration 30s
+
+              transport http {
+                  keepalive off
+                  dial_timeout 5s
+                  response_header_timeout 60s
+              }
           }
 
           log {

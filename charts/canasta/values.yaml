@@ -70,6 +70,7 @@ cacheWarmer:
   enabled: false
   workerEnabled: false
   image: ""
+  requestBaseUrl: "http://varnish"
   discoverSchedule: "*/20 * * * *"
   warmSchedule: "*/5 * * * *"
   accessLogTail: 4000

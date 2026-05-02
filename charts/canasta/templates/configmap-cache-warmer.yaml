@@ -21,7 +21,11 @@ data:
     $translationFile = $baseDir . '/translation-pages.json';
     $stateFile = $baseDir . '/discovery-state.json';
     $siteServer = rtrim(getenv('SITE_SERVER') ?: 'https://wikiapiary.dobriy.ai', '/');
+    $warmBaseUrl = rtrim(getenv('WARM_BASE_URL') ?: $siteServer, '/');
+    $warmHostHeader = getenv('WARM_HOST_HEADER') ?: '';
     $siteHost = getenv('SITE_HOST') ?: parse_url($siteServer, PHP_URL_HOST);
+    $discoverBaseUrl = rtrim(getenv('DISCOVER_BASE_URL') ?: $siteServer, '/');
+    $discoverHostHeader = getenv('DISCOVER_HOST_HEADER') ?: '';
     $accessTail = max(100, (int)(getenv('ACCESS_LOG_TAIL') ?: 4000));
     $biggestWikisLimit = max(10, (int)(getenv('BIGGEST_WIKIS_LIMIT') ?: 100));
     $hotLimit = max(10, (int)(getenv('HOT_PAGES_LIMIT') ?: 80));
@@ -104,12 +108,14 @@ data:
         return true;
     }
 
-    function fetch_text($url, $timeout) {
+    function fetch_text($url, $timeout, array $extraHeaders = []) {
         $ctx = stream_context_create([
             'http' => [
                 'timeout' => $timeout,
                 'ignore_errors' => true,
-                'user_agent' => 'WikiApiaryCacheDiscovery/1.0'
+                'header' => implode("\r\n", array_merge([
+                    'User-Agent: WikiApiaryCacheDiscovery/1.0'
+                ], $extraHeaders))
             ],
             'ssl' => [
                 'verify_peer' => false,
@@ -120,8 +126,8 @@ data:
         return $data === false ? '' : $data;
     }
 
-    function fetch_json_url($url, $timeout) {
-        $data = fetch_text($url, $timeout);
+    function fetch_json_url($url, $timeout, array $extraHeaders = []) {
+        $data = fetch_text($url, $timeout, $extraHeaders);
         if ($data === '') {
             return [];
         }
@@ -129,11 +135,12 @@ data:
         return is_array($json) ? $json : [];
     }
 
-    function fetch_valid_language_codes($siteServer, $timeout) {
+    function fetch_valid_language_codes($siteServer, $timeout, array $extraHeaders = []) {
         $codes = [];
         $data = fetch_json_url(
             $siteServer . '/w/api.php?action=query&meta=siteinfo&siprop=languages&format=json',
-            $timeout
+            $timeout,
+            $extraHeaders
         );
         foreach (($data['query']['languages'] ?? []) as $lang) {
             if (!empty($lang['code']) && is_string($lang['code'])) {
@@ -143,7 +150,7 @@ data:
         return $codes;
     }
 
-    function discover_translation_pages($siteServer, array $sourcePages, array $validLanguageCodes, $timeout) {
+    function discover_translation_pages($siteServer, array $sourcePages, array $validLanguageCodes, $timeout, array $extraHeaders = []) {
         $translations = [];
         foreach ($sourcePages as $url) {
             if (!eligible_warm_path($url) || strpos($url, '/wiki/') !== 0) {
@@ -152,7 +159,8 @@ data:
             $title = str_replace('_', ' ', rawurldecode(substr($url, strlen('/wiki/'))));
             $data = fetch_json_url(
                 $siteServer . '/w/api.php?action=query&list=allpages&apprefix=' . rawurlencode($title . '/') . '&aplimit=max&format=json',
-                $timeout
+                $timeout,
+                $extraHeaders
             );
             foreach (($data['query']['allpages'] ?? []) as $page) {
                 $translatedTitle = $page['title'] ?? '';
@@ -175,9 +183,9 @@ data:
         return $translations;
     }
 
-    function discover_seed_pages($siteServer, $timeout) {
-        $html = fetch_text($siteServer . '/wiki/Main_Page', $timeout);
-        $raw = fetch_text($siteServer . '/wiki/Main_Page?action=raw', $timeout);
+    function discover_seed_pages($siteServer, $timeout, array $extraHeaders = []) {
+        $html = fetch_text($siteServer . '/wiki/Main_Page', $timeout, $extraHeaders);
+        $raw = fetch_text($siteServer . '/wiki/Main_Page?action=raw', $timeout, $extraHeaders);
         $urls = ['/wiki/Main_Page'];
 
         if ($html !== '') {
@@ -222,7 +230,7 @@ data:
         $initial = array_values(array_unique($urls));
         foreach ($initial as $seedUrl) {
             $seedTitle = rawurldecode(substr($seedUrl, strlen('/wiki/')));
-            $seedRaw = fetch_text($siteServer . $seedUrl . '?action=raw', $timeout);
+            $seedRaw = fetch_text($siteServer . $seedUrl . '?action=raw', $timeout, $extraHeaders);
             if ($seedRaw === '' || !preg_match_all('/\[\[(.+?)(\|.+?)?\]\]/', $seedRaw, $wikilinks)) {
                 continue;
             }
@@ -266,7 +274,12 @@ data:
         return $urls;
     }
 
-    $seedPages = discover_seed_pages($siteServer, $requestTimeout);
+    $discoverHeaders = [];
+    if ($discoverHostHeader !== '') {
+        $discoverHeaders[] = 'Host: ' . $discoverHostHeader;
+    }
+
+    $seedPages = discover_seed_pages($discoverBaseUrl, $requestTimeout, $discoverHeaders);
     atomic_write_json($seedFile, [
         'generatedAt' => gmdate('c'),
         'pages' => $seedPages
@@ -276,8 +289,9 @@ data:
     $largestPages = [];
     $largestQuery = rawurlencode('[[Category:Website]] [[Is active::true]]|?Has pages count=total pages|sort=Has pages count|order=desc|limit=' . $biggestWikisLimit);
     $largestData = fetch_json_url(
-        $siteServer . '/w/api.php?action=ask&query=' . $largestQuery . '&format=json',
-        $requestTimeout
+        $discoverBaseUrl . '/w/api.php?action=ask&query=' . $largestQuery . '&format=json',
+        $requestTimeout,
+        $discoverHeaders
     );
     foreach (($largestData['query']['results'] ?? []) as $result) {
         if (!is_array($result) || empty($result['fulltext'])) {
@@ -337,12 +351,13 @@ data:
         'scores' => array_slice($counts, 0, $hotLimit, true)
     ]);
 
-    $validLanguageCodes = fetch_valid_language_codes($siteServer, $requestTimeout);
+    $validLanguageCodes = fetch_valid_language_codes($discoverBaseUrl, $requestTimeout, $discoverHeaders);
     $translationPages = discover_translation_pages(
-        $siteServer,
+        $discoverBaseUrl,
         array_values(array_unique(array_merge($seedPages, array_slice($hotPages, 0, min(20, $hotLimit))))),
         $validLanguageCodes,
-        $requestTimeout
+        $requestTimeout,
+        $discoverHeaders
     );
     atomic_write_json($translationFile, [
         'generatedAt' => gmdate('c'),
@@ -362,8 +377,8 @@ data:
     $candidates = array_values(array_unique(array_merge($seedPages, array_slice($hotPages, 0, $semanticLimit))));
     foreach ($candidates as $url) {
         $title = substr($url, strlen('/wiki/'));
-        $rawUrl = $siteServer . '/wiki/' . $title . '?action=raw';
-        $raw = fetch_text($rawUrl, $requestTimeout);
+        $rawUrl = $discoverBaseUrl . '/wiki/' . $title . '?action=raw';
+        $raw = fetch_text($rawUrl, $requestTimeout, $discoverHeaders);
         if ($raw === '' || !eligible_warm_path($url)) {
             continue;
         }
@@ -398,6 +413,8 @@ data:
     $warmStateFile = $baseDir . '/warm-state.json';
     $uncacheableFile = $baseDir . '/uncacheable-pages.json';
     $siteServer = rtrim(getenv('SITE_SERVER') ?: 'https://wikiapiary.dobriy.ai', '/');
+    $warmBaseUrl = rtrim(getenv('WARM_BASE_URL') ?: $siteServer, '/');
+    $warmHostHeader = getenv('WARM_HOST_HEADER') ?: '';
     $recentChangesLimit = max(5, (int)(getenv('RECENT_CHANGES_LIMIT') ?: 25));
     $largestBatchSize = max(1, (int)(getenv('LARGEST_BATCH_SIZE') ?: 20));
     $warmPagesLimit = max(5, (int)(getenv('WARM_PAGES_LIMIT') ?: 30));
@@ -439,12 +456,14 @@ data:
         return true;
     }
 
-    function fetch_json($url, $timeout) {
+    function fetch_json($url, $timeout, array $extraHeaders = []) {
         $ctx = stream_context_create([
             'http' => [
                 'timeout' => $timeout,
                 'ignore_errors' => true,
-                'user_agent' => 'WikiApiaryCacheWarmer/1.0'
+                'header' => implode("\r\n", array_merge([
+                    'User-Agent: WikiApiaryCacheWarmer/1.0'
+                ], $extraHeaders))
             ],
             'ssl' => [
                 'verify_peer' => false,
@@ -474,43 +493,62 @@ data:
     }
 
     function request_url($fullUrl, $timeout, $method = 'GET', array $extraHeaders = []) {
-        $ctx = stream_context_create([
-            'http' => [
-                'method' => $method,
-                'timeout' => $timeout,
-                'ignore_errors' => true,
-                'header' => implode("\r\n", array_merge([
-                    'User-Agent: WikiApiaryCacheWarmer/1.0',
-                    'Accept: text/html,application/xhtml+xml',
-                    'Accept-Language: en'
-                ], $extraHeaders))
-            ],
-            'ssl' => [
-                'verify_peer' => false,
-                'verify_peer_name' => false
-            ]
-        ]);
-        $start = microtime(true);
-        $body = @file_get_contents($fullUrl, false, $ctx);
-        $elapsed = microtime(true) - $start;
-        $status = 0;
-        if (isset($http_response_header[0]) && preg_match('#\s(\d{3})\s#', $http_response_header[0], $m)) {
-            $status = (int)$m[1];
-        }
-        $headers = parse_response_headers($http_response_header ?? []);
-        $age = null;
-        if (!empty($headers['age'][0]) && ctype_digit((string)$headers['age'][0])) {
-            $age = (int)$headers['age'][0];
-        }
-        return [
+        $attempts = 3;
+        $last = [
             'url' => $fullUrl,
-            'status' => $status,
-            'ok' => $body !== false && $status >= 200 && $status < 400,
-            'seconds' => round($elapsed, 3),
-            'age' => $age,
-            'via' => $headers['via'] ?? [],
-            'cacheControl' => $headers['cache-control'][0] ?? null,
+            'status' => 0,
+            'ok' => false,
+            'seconds' => null,
+            'age' => null,
+            'via' => [],
+            'cacheControl' => null,
         ];
+        for ($attempt = 0; $attempt < $attempts; $attempt++) {
+            $ctx = stream_context_create([
+                'http' => [
+                    'method' => $method,
+                    'timeout' => $timeout,
+                    'ignore_errors' => true,
+                    'header' => implode("\r\n", array_merge([
+                        'User-Agent: WikiApiaryCacheWarmer/1.0',
+                        'Accept: text/html,application/xhtml+xml',
+                        'Accept-Language: en'
+                    ], $extraHeaders))
+                ],
+                'ssl' => [
+                    'verify_peer' => false,
+                    'verify_peer_name' => false
+                ]
+            ]);
+            $start = microtime(true);
+            $body = @file_get_contents($fullUrl, false, $ctx);
+            $elapsed = microtime(true) - $start;
+            $status = 0;
+            if (isset($http_response_header[0]) && preg_match('#\s(\d{3})\s#', $http_response_header[0], $m)) {
+                $status = (int)$m[1];
+            }
+            $headers = parse_response_headers($http_response_header ?? []);
+            $age = null;
+            if (!empty($headers['age'][0]) && ctype_digit((string)$headers['age'][0])) {
+                $age = (int)$headers['age'][0];
+            }
+            $last = [
+                'url' => $fullUrl,
+                'status' => $status,
+                'ok' => $body !== false && $status >= 200 && $status < 400,
+                'seconds' => round($elapsed, 3),
+                'age' => $age,
+                'via' => $headers['via'] ?? [],
+                'cacheControl' => $headers['cache-control'][0] ?? null,
+            ];
+            if (!empty($last['ok'])) {
+                return $last;
+            }
+            if ($attempt < ($attempts - 1)) {
+                usleep(200000);
+            }
+        }
+        return $last;
     }
 
     $seedPages = load_json($seedFile, ['pages' => []])['pages'] ?? [];
@@ -529,9 +567,15 @@ data:
         }
     }
 
+    $warmHeaders = [];
+    if ($warmHostHeader !== '') {
+        $warmHeaders[] = 'Host: ' . $warmHostHeader;
+    }
+
     $recentChanges = fetch_json(
-        $siteServer . '/w/api.php?action=query&list=recentchanges&rcnamespace=0&rclimit=' . $recentChangesLimit . '&rcprop=title|ids|timestamp&format=json',
-        $requestTimeout
+        $warmBaseUrl . '/w/api.php?action=query&list=recentchanges&rcnamespace=0&rclimit=' . $recentChangesLimit . '&rcprop=title|ids|timestamp&format=json',
+        $requestTimeout,
+        $warmHeaders
     );
     $changedPages = [];
     foreach (($recentChanges['query']['recentchanges'] ?? []) as $change) {
@@ -576,7 +620,7 @@ data:
 
     $results = [];
     foreach ($targets as $path) {
-        $refresh = request_url($siteServer . $path, $requestTimeout);
+        $refresh = request_url($warmBaseUrl . $path, $requestTimeout, 'GET', $warmHeaders);
         $cacheControl = strtolower((string)($refresh['cacheControl'] ?? ''));
         if (($refresh['status'] ?? 0) === 404) {
             $uncacheableMap[$path] = time() + $uncacheableTtl;
@@ -632,6 +676,7 @@ data:
     date_default_timezone_set('UTC');
 
     $baseDir = getenv('WARM_CACHE_DIR') ?: '/warm-cache';
+    $siteServer = rtrim(getenv('SITE_SERVER') ?: 'https://wikiapiary.dobriy.ai', '/');
     $siteHost = getenv('SITE_HOST') ?: parse_url($siteServer, PHP_URL_HOST);
     $priorityQueueFile = $baseDir . '/rewarm-priority.ndjson';
     $queueFile = $baseDir . '/rewarm-queue.ndjson';
@@ -640,7 +685,8 @@ data:
     $uncacheableFile = $baseDir . '/uncacheable-pages.json';
     $workerStateFile = $baseDir . '/rewarm-worker-state.json';
     $startupStampFile = $baseDir . '/varnish-startup.stamp';
-    $siteServer = rtrim(getenv('SITE_SERVER') ?: 'https://wikiapiary.dobriy.ai', '/');
+    $warmBaseUrl = rtrim(getenv('WARM_BASE_URL') ?: $siteServer, '/');
+    $warmHostHeader = getenv('WARM_HOST_HEADER') ?: '';
     $pollSeconds = max(3, (int)(getenv('QUEUE_POLL_SECONDS') ?: 10));
     $queueBatchSize = max(5, (int)(getenv('QUEUE_BATCH_SIZE') ?: 60));
     $requestTimeout = max(3, (int)(getenv('REQUEST_TIMEOUT_SECONDS') ?: 15));
@@ -693,44 +739,64 @@ data:
     }
 
     function request_url($fullUrl, $timeout, array $extraHeaders = []) {
-        $ctx = stream_context_create([
-            'http' => [
-                'method' => 'GET',
-                'timeout' => $timeout,
-                'ignore_errors' => true,
-                'header' => implode("\r\n", array_merge([
-                    'User-Agent: WikiApiaryRewarmWorker/1.0',
-                    'Accept: text/html,application/xhtml+xml',
-                    'Accept-Language: en'
-                ], $extraHeaders))
-            ],
-            'ssl' => [
-                'verify_peer' => false,
-                'verify_peer_name' => false
-            ]
-        ]);
-        $start = microtime(true);
-        $body = @file_get_contents($fullUrl, false, $ctx);
-        $elapsed = microtime(true) - $start;
-        $status = 0;
-        if (isset($http_response_header[0]) && preg_match('#\s(\d{3})\s#', $http_response_header[0], $m)) {
-            $status = (int)$m[1];
-        }
-        $headers = parse_response_headers($http_response_header ?? []);
-        $age = null;
-        if (!empty($headers['age'][0]) && ctype_digit((string)$headers['age'][0])) {
-            $age = (int)$headers['age'][0];
-        }
-        return [
+        $attempts = 3;
+        $last = [
             'url' => $fullUrl,
-            'status' => $status,
-            'ok' => $body !== false && $status >= 200 && $status < 400,
-            'seconds' => round($elapsed, 3),
-            'age' => $age,
-            'via' => $headers['via'] ?? [],
-            'cacheControl' => $headers['cache-control'][0] ?? null,
-            'cache' => $headers['x-wikiapiary-cache'][0] ?? null,
+            'status' => 0,
+            'ok' => false,
+            'seconds' => null,
+            'age' => null,
+            'via' => [],
+            'cacheControl' => null,
+            'cache' => null,
         ];
+        for ($attempt = 0; $attempt < $attempts; $attempt++) {
+            $ctx = stream_context_create([
+                'http' => [
+                    'method' => 'GET',
+                    'timeout' => $timeout,
+                    'ignore_errors' => true,
+                    'header' => implode("\r\n", array_merge([
+                        'User-Agent: WikiApiaryRewarmWorker/1.0',
+                        'Accept: text/html,application/xhtml+xml',
+                        'Accept-Language: en'
+                    ], $extraHeaders))
+                ],
+                'ssl' => [
+                    'verify_peer' => false,
+                    'verify_peer_name' => false
+                ]
+            ]);
+            $start = microtime(true);
+            $body = @file_get_contents($fullUrl, false, $ctx);
+            $elapsed = microtime(true) - $start;
+            $status = 0;
+            if (isset($http_response_header[0]) && preg_match('#\s(\d{3})\s#', $http_response_header[0], $m)) {
+                $status = (int)$m[1];
+            }
+            $headers = parse_response_headers($http_response_header ?? []);
+            $age = null;
+            if (!empty($headers['age'][0]) && ctype_digit((string)$headers['age'][0])) {
+                $age = (int)$headers['age'][0];
+            }
+            $last = [
+                'url' => $fullUrl,
+                'status' => $status,
+                'ok' => $body !== false && $status >= 200 && $status < 400,
+                'seconds' => round($elapsed, 3),
+                'age' => $age,
+                'via' => $headers['via'] ?? [],
+                'cacheControl' => $headers['cache-control'][0] ?? null,
+                'cache' => $headers['x-wikiapiary-cache'][0] ?? null,
+            ];
+            if (!empty($last['ok'])) {
+                return $last;
+            }
+            if ($attempt < ($attempts - 1)) {
+                usleep(200000);
+            }
+        }
+        return $last;
     }
 
     function append_queue_items($queueFile, array $entries, $reason) {
@@ -929,10 +995,12 @@ data:
             }
             $seen[$path] = true;
             $attempt = max(0, (int)($entry['attempt'] ?? 0));
-            $baseUrl = !empty($entry['baseUrl']) && is_string($entry['baseUrl']) ? rtrim($entry['baseUrl'], '/') : $siteServer;
+            $baseUrl = !empty($entry['baseUrl']) && is_string($entry['baseUrl']) ? rtrim($entry['baseUrl'], '/') : $warmBaseUrl;
             $headers = [];
             if (!empty($entry['hostHeader']) && is_string($entry['hostHeader'])) {
                 $headers[] = 'Host: ' . $entry['hostHeader'];
+            } elseif ($warmHostHeader !== '') {
+                $headers[] = 'Host: ' . $warmHostHeader;
             }
             $refresh = request_url($baseUrl . $path, $requestTimeout, $headers);
             $cacheControl = strtolower((string)($refresh['cacheControl'] ?? ''));

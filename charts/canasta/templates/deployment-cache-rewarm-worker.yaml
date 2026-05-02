@@ -35,6 +35,10 @@ spec:
               value: "https://{{ index .Values.domains 0 }}"
             - name: SITE_HOST
               value: "{{ index .Values.domains 0 }}"
+            - name: WARM_BASE_URL
+              value: "{{ .Values.cacheWarmer.requestBaseUrl }}"
+            - name: WARM_HOST_HEADER
+              value: "{{ index .Values.domains 0 }}"
             - name: WARM_CACHE_DIR
               value: /warm-cache
             - name: QUEUE_POLL_SECONDS
