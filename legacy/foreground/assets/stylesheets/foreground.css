@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&display=swap');
+
 body {
 	line-height: 1.6em;
 }
@@ -312,6 +314,37 @@ div.social-follow div[class*="addthis"] {
 	display: inline-block;
 	text-align: center;
 	margin: 0 0 .5em .5em;
+}
+.dobriyai-footer-link {
+	display: inline-block;
+	text-decoration: none;
+}
+.dobriyai-footer-badge {
+	display: inline-flex;
+	flex-direction: column;
+	align-items: flex-start;
+	justify-content: center;
+	min-width: 88px;
+	height: 31px;
+	padding: 2px 8px;
+	border: 1px solid #c9ced6;
+	border-radius: 8px;
+	background: linear-gradient(180deg, #ffffff 0%, #f4f6f9 100%);
+	box-shadow: inset 0 1px 0 rgba(255,255,255,.85);
+	font-family: 'Poppins', sans-serif;
+	line-height: 1.05;
+}
+.dobriyai-footer-kicker {
+	font-size: 8px;
+	font-weight: 600;
+	letter-spacing: .08em;
+	text-transform: uppercase;
+	color: #7f8c9a;
+}
+.dobriyai-footer-brand {
+	font-size: 14px;
+	font-weight: 700;
+	color: #1f2d3d;
 }
 li#footer-privacy {
 	float: left;

@@ -440,10 +440,11 @@ configData:
           'alt' => 'Powered by Semantic MediaWiki',
           'class' => 'smw-footer',
       ];
-      $wgFooterIcons['servedby']['wmfcloud'] = [
-          'src' => '/wmf-cloud.png',
-          'url' => 'https://wikitech.wikimedia.org/wiki/Help:Cloud_Services_Introduction',
-          'alt' => 'Served by Wikimedia Cloud Services',
+      $wgFooterIcons['servedby']['dobriyai'] = [
+          'src' => '',
+          'url' => 'https://dobriy.ai',
+          'alt' => 'Hosted by Dobriy AI',
+          'class' => 'dobriyai-footer',
       ];
     settings--global--settings.yaml: |
       extensions:

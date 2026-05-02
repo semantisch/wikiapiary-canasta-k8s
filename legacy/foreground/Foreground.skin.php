@@ -16,6 +16,10 @@ class foregroundTemplate extends BaseTemplate {
 		$width = isset( $icon['width'] ) ? ' width="' . intval( $icon['width'] ) . '"' : '';
 		$height = isset( $icon['height'] ) ? ' height="' . intval( $icon['height'] ) . '"' : '';
 
+		if ( isset( $icon['class'] ) && strpos( $icon['class'], 'dobriyai-footer' ) !== false ) {
+			return '<a href="' . $url . '" class="dobriyai-footer-link"><span class="dobriyai-footer-badge"><span class="dobriyai-footer-kicker">Hosted by</span><span class="dobriyai-footer-brand">Dobriy AI</span></span></a>';
+		}
+
 		return '<a href="' . $url . '"><img src="' . $src . '" alt="' . $alt . '"' . $class . $srcset . $width . $height . ' loading="lazy"/></a>';
 	}
 
