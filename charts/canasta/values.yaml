@@ -112,6 +112,8 @@ ingress:
   enabled: true
   className: ""
   tls: true
+  tlsHosts: []
+  tlsSecretName: ""
   annotations: {}
   certManager:
     enabled: false

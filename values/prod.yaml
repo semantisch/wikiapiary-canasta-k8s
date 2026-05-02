@@ -84,6 +84,9 @@ ingress:
   enabled: true
   className: nginx
   tls: true
+  tlsHosts:
+    - wikiapiary.dobriy.ai
+  tlsSecretName: canasta-wikiapiary-tls
   annotations: {}
   certManager:
     enabled: true
