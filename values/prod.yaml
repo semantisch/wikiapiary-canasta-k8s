@@ -1,5 +1,5 @@
 instance:
-  id: wikiapiary
+  id: wikiapiary-live
 
 image:
   repository: wikiapiary-legacy
@@ -94,6 +94,19 @@ secrets:
   mwSecretName: wikiapiary-mw-secrets
 
 configData:
+  db:
+    my.cnf: |
+      [client]
+      default-character-set = utf8mb4
+
+      [mysqld]
+      character-set-server = utf8mb4
+      collation-server = utf8mb4_general_ci
+      max_allowed_packet = 1G
+      innodb_buffer_pool_size = 8G
+      max_heap_table_size = 512M
+      tmp_table_size = 512M
+      tmp_memory_table_size = 512M
   web:
     .env: |
       HTTP_PORT=80

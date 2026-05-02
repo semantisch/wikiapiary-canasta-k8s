@@ -10,12 +10,12 @@ spec:
     targetRevision: main
     path: charts/canasta
     helm:
-      releaseName: canasta-wikiapiary
+      releaseName: canasta-wikiapiary-live
       valueFiles:
         - ../../values/prod.yaml
   destination:
     server: https://kubernetes.default.svc
-    namespace: canasta-wikiapiary
+    namespace: canasta-wikiapiary-live
   syncPolicy:
     automated:
       prune: true

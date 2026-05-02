@@ -11,4 +11,4 @@ The live bootstrap steps are:
 3. Apply `argocd/wikiapiary.yaml`.
 
 The Canasta application then syncs from Git into namespace
-`canasta-wikiapiary`.
+`canasta-wikiapiary-live`.

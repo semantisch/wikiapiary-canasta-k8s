@@ -18,7 +18,7 @@ Kubernetes cluster.
 1. Make changes in Git.
 2. CI runs `helm lint` and `helm template`.
 3. Merge to `main`.
-4. Argo CD syncs the application into namespace `canasta-wikiapiary`.
+4. Argo CD syncs the application into namespace `canasta-wikiapiary-live`.
 
 ## First-Time Bootstrap
 

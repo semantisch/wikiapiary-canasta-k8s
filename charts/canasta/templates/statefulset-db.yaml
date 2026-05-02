@@ -46,7 +46,7 @@ spec:
             - name: db-data
               mountPath: /var/lib/mysql
             - name: db-config
-              mountPath: /etc/my.cnf
+              mountPath: /etc/mysql/mariadb.conf.d/99-canasta.cnf
               subPath: my.cnf
               readOnly: true
           {{- with .Values.db.resources }}
