@@ -55,11 +55,11 @@ class foregroundTemplate extends BaseTemplate {
 		);
 		$this->getSkin()->getOutput()->addHeadItem(
 			'dobriyai-footer-fonts',
-			'<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">'
+			'<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">'
 		);
 		$this->getSkin()->getOutput()->addHeadItem(
 			'dobriyai-footer-inline-style',
-			'<style>.dobriyai-footer-link{display:inline-block;text-decoration:none;vertical-align:middle}.dobriyai-footer-badge{display:inline-flex;flex-direction:column;align-items:flex-start;justify-content:center;min-width:88px;height:31px;box-sizing:border-box;padding:3px 8px 2px;border:1px solid #c9ced6;border-radius:0;background:#fff;box-shadow:none;font-family:"Poppins",sans-serif!important;line-height:1.05;vertical-align:middle}.dobriyai-footer-kicker{font-size:8px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#7f8c9a;font-family:"Poppins",sans-serif!important}.dobriyai-footer-brand{font-size:14px;font-weight:600;color:#1f2d3d;font-family:"Poppins",sans-serif!important}</style>'
+			'<style>.dobriyai-footer-link{display:inline-block;text-decoration:none;vertical-align:middle}.dobriyai-footer-badge{display:inline-flex;flex-direction:column;align-items:flex-start;justify-content:center;min-width:88px;height:31px;box-sizing:border-box;padding:3px 8px 2px;border:1px solid #c9ced6;border-radius:0;background:#fff;box-shadow:none;font-family:"Poppins",sans-serif!important;line-height:1.05;vertical-align:middle}.dobriyai-footer-kicker{font-size:8px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:#7f8c9a;font-family:"Poppins",sans-serif!important}.dobriyai-footer-brand{font-size:14px;font-weight:500;color:#1f2d3d;font-family:"Poppins",sans-serif!important}</style>'
 		);
 		switch ($wgForegroundFeatures['enableTabs']) {
 			case true:

@@ -339,14 +339,14 @@ div.social-follow div[class*="addthis"] {
 }
 .dobriyai-footer-kicker {
 	font-size: 8px;
-	font-weight: 600;
+	font-weight: 500;
 	letter-spacing: .08em;
 	text-transform: uppercase;
 	color: #7f8c9a;
 }
 .dobriyai-footer-brand {
 	font-size: 14px;
-	font-weight: 600;
+	font-weight: 500;
 	color: #1f2d3d;
 }
 li#footer-privacy {
