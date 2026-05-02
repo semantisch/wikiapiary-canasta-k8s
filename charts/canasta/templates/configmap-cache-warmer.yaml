@@ -81,10 +81,22 @@ data:
         if (preg_match('#^/wiki/Special:#', $url)) {
             return false;
         }
-        foreach (['/wiki/Template:', '/wiki/Module:', '/wiki/User:', '/wiki/Talk:', '/wiki/File:'] as $blocked) {
+        foreach ([
+            '/wiki/Template:',
+            '/wiki/Module:',
+            '/wiki/User:',
+            '/wiki/Talk:',
+            '/wiki/File:',
+            '/wiki/Category:',
+            '/wiki/Concept:',
+            '/wiki/Property:'
+        ] as $blocked) {
             if (strpos($url, $blocked) === 0) {
                 return false;
             }
+        }
+        if (preg_match('/(::|[<>{}\[\]])/', $url)) {
+            return false;
         }
         return true;
     }
@@ -138,6 +150,9 @@ data:
                 }
                 if (strpos($target, 'Special:MyLanguage/') === 0) {
                     $target = substr($target, strlen('Special:MyLanguage/'));
+                }
+                if (preg_match('/(::|[<>{}\[\]])/', $target)) {
+                    continue;
                 }
                 $url = wiki_path_from_title($target);
                 if (eligible_warm_path($url)) {
