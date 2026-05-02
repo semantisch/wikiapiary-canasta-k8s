@@ -19,7 +19,7 @@ spec:
         {{- include "canasta.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: varnish
       annotations:
-        checksum/varnish-config: {{ .Values.configData.varnish | toJson | sha256sum }}
+        checksum/varnish-config: {{ ternary (.Values.configData.varnish | toJson) (.Files.Get "files/default.vcl") (not .Values.configData.varnish) | sha256sum }}
     spec:
       {{- with .Values.nodeSelector }}
       nodeSelector:

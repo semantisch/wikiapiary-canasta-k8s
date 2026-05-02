@@ -12,7 +12,10 @@ backend default {
 }
 
 acl purge {
-    "web";
+    "localhost";
+    "127.0.0.1";
+    "::1";
+    "10.42.0.0"/16;
 }
 
 # vcl_recv is called whenever a request is received

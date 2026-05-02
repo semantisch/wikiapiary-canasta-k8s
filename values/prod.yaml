@@ -253,16 +253,16 @@ configData:
       $wgAllowSiteCSSOnRestrictedPages = true;
       $wgMiserMode = true;
       $wgEnableSidebarCache = true;
-      $wgObjectCaches[CACHE_REDIS] = [
+      $wgObjectCaches['redis'] = [
           'class' => RedisBagOStuff::class,
           'servers' => [ 'redis:6379' ],
           'persistent' => true,
       ];
-      $wgMainCacheType = CACHE_REDIS;
-      $wgSessionCacheType = CACHE_REDIS;
-      $wgParserCacheType = CACHE_REDIS;
-      $wgMessageCacheType = CACHE_REDIS;
-      $wgLanguageConverterCacheType = CACHE_REDIS;
+      $wgMainCacheType = 'redis';
+      $wgSessionCacheType = 'redis';
+      $wgParserCacheType = 'redis';
+      $wgMessageCacheType = 'redis';
+      $wgLanguageConverterCacheType = 'redis';
       $wgSessionsInObjectCache = true;
       $wgEnableParserCache = true;
       $wgParserCacheExpireTime = 60 * 60 * 24 * 3;
@@ -446,7 +446,7 @@ configData:
       $smwgQMaxDepth = 16;
       $smwgQConceptMaxSize = 20;
       $smwgQConceptMaxDepth = 8;
-      $smwgQueryResultCacheType = CACHE_REDIS;
+      $smwgQueryResultCacheType = 'redis';
       $smwgQueryResultCacheLifetime = 60 * 60 * 24;
       $srfgArraySep = "\n";
       $srfgArrayPropSep = ',';
