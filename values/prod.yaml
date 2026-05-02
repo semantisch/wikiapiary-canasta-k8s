@@ -15,6 +15,7 @@ nodeSelector:
 
 web:
   replicaCount: 1
+  skipStartupUpdate: true
   resources:
     requests:
       cpu: 500m
@@ -435,7 +436,9 @@ configData:
 
       http://wikiapiary.dobriy.ai, http://dev.wikiapiary.com {
           import /etc/caddy/Caddyfile.site
-          reverse_proxy varnish:80
+          reverse_proxy varnish:80 {
+              header_up Host wikiapiary.dobriy.ai
+          }
 
           log {
               output file /var/log/caddy/access.log

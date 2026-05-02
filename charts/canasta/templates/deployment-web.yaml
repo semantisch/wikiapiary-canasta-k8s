@@ -69,6 +69,16 @@ spec:
         - name: web
           image: {{ include "canasta.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.web.skipStartupUpdate }}
+          command:
+            - /bin/bash
+            - -lc
+            - |
+              export PATH=/override-bin:$PATH
+              sed '/\. \/run-maintenance-scripts\.sh/{n;s/run_autoupdate/if [ "${MW_SKIP_STARTUP_UPDATE:-false}" != "true" ]; then run_autoupdate; else echo "Skipping startup autoupdate because MW_SKIP_STARTUP_UPDATE=$MW_SKIP_STARTUP_UPDATE"; fi/;}' /run-all.sh > /tmp/run-all.sh
+              chmod +x /tmp/run-all.sh
+              exec /tmp/run-all.sh
+          {{- end }}
           ports:
             - name: http
               containerPort: 80
@@ -112,6 +122,10 @@ spec:
                   key: MW_SECRET_KEY
             - name: CANASTA_ENABLE_VARNISH
               value: "{{ .Values.varnish.enabled }}"
+            {{- if .Values.web.skipStartupUpdate }}
+            - name: MW_SKIP_STARTUP_UPDATE
+              value: "true"
+            {{- end }}
           volumeMounts:
             - name: config
               mountPath: /mediawiki/config

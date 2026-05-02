@@ -21,6 +21,7 @@ nodeSelector: {}
 # Web tier
 web:
   replicaCount: 1
+  skipStartupUpdate: false
   resources:
     requests:
       cpu: 250m
