@@ -88,10 +88,16 @@ sub vcl_recv {
         return (pass);
     } /* We only deal with GET and HEAD by default */
 
-    # Translated main-page subpages are language-specific by URL already, so
-    # keeping Accept-Language in the cache key only creates needless variants.
-    if (req.url ~ "^/wiki/Main_Page/[A-Za-z0-9-]+$") {
-        unset req.http.Accept-Language;
+    # Anonymous wiki pages should not explode into many cache variants based on
+    # browser language preferences. Keep translated subpages keyed by URL, and
+    # normalize everything else to the wiki's default anonymous interface
+    # language so "en-US", plain "en", and no header all reuse one object.
+    if (req.url ~ "^/wiki/" && req.url !~ "^/wiki/Special:") {
+        if (req.url ~ "^/wiki/Main_Page/[A-Za-z0-9-]+$") {
+            unset req.http.Accept-Language;
+        } else {
+            set req.http.Accept-Language = "en";
+        }
     }
 
     # Force lookup if the request is a no-cache request from the client.
@@ -180,7 +186,7 @@ sub vcl_backend_response {
           return (deliver);
         }
 
-        if (bereq.url ~ "^/wiki/Main_Page/[A-Za-z0-9-]+$" && beresp.http.Vary) {
+        if (bereq.url ~ "^/wiki/" && bereq.url !~ "^/wiki/Special:" && beresp.http.Vary) {
           set beresp.http.Vary = regsub(beresp.http.Vary, "^Accept-Language,? ?", "");
           set beresp.http.Vary = regsub(beresp.http.Vary, ", ?Accept-Language$", "");
           set beresp.http.Vary = regsuball(beresp.http.Vary, ", ?Accept-Language, ?", ", ");
@@ -220,7 +226,7 @@ sub vcl_deliver {
             }
         }
 
-        if (req.url ~ "^/wiki/Main_Page/[A-Za-z0-9-]+$" && resp.http.Vary) {
+        if (req.url ~ "^/wiki/" && req.url !~ "^/wiki/Special:" && resp.http.Vary) {
             set resp.http.Vary = regsub(resp.http.Vary, "^Accept-Language,? ?", "");
             set resp.http.Vary = regsub(resp.http.Vary, ", ?Accept-Language$", "");
             set resp.http.Vary = regsuball(resp.http.Vary, ", ?Accept-Language, ?", ", ");
