@@ -83,15 +83,18 @@ cacheWarmer:
   warmFanoutHost: ""
   nodeSelector: {}
   discoverSchedule: "*/20 * * * *"
+  priorityWarmSchedule: "*/1 * * * *"
   warmSchedule: "*/5 * * * *"
   accessLogTail: 4000
   biggestWikisLimit: 100
   largestBatchSize: 20
   hotPagesLimit: 80
+  priorityHotPagesLimit: 20
   semanticDiscoveryLimit: 40
   semanticSetLimit: 200
   recentChangesLimit: 25
   warmPagesLimit: 120
+  priorityPagesLimit: 80
   queuePollSeconds: 5
   queueBatchSize: 60
   tier1RefreshSeconds: 900

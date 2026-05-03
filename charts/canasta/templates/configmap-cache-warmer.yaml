@@ -114,6 +114,18 @@ data:
         return true;
     }
 
+    function is_priority_seed_path($url) {
+        if (!eligible_warm_path($url) || $url === '/') {
+            return false;
+        }
+        if (strpos($url, '/wiki/') !== 0) {
+            return false;
+        }
+        $title = substr($url, strlen('/wiki/'));
+        $slashCount = substr_count($title, '/');
+        return $slashCount <= 1;
+    }
+
     function fetch_text($url, $timeout, array $extraHeaders = []) {
         $ctx = stream_context_create([
             'http' => [
@@ -708,6 +720,222 @@ data:
     #!/bin/sh
     set -eu
     php /scripts/warm.php
+  run-warm-priority.sh: |
+    #!/bin/sh
+    set -eu
+    php /scripts/priority.php
+  priority.php: |
+    <?php
+    error_reporting(E_ALL);
+    date_default_timezone_set('UTC');
+
+    $baseDir = getenv('WARM_CACHE_DIR') ?: '/warm-cache';
+    $siteServer = rtrim(getenv('SITE_SERVER') ?: 'https://wikiapiary.dobriy.ai', '/');
+    $warmBaseUrl = rtrim(getenv('WARM_BASE_URL') ?: $siteServer, '/');
+    $warmFanoutHost = getenv('WARM_FANOUT_HOST') ?: '';
+    $warmHostHeader = getenv('WARM_HOST_HEADER') ?: '';
+    $priorityHotPagesLimit = max(0, (int)(getenv('PRIORITY_HOT_PAGES_LIMIT') ?: 20));
+    $priorityPagesLimit = max(10, (int)(getenv('PRIORITY_PAGES_LIMIT') ?: 80));
+    $requestTimeout = max(3, (int)(getenv('REQUEST_TIMEOUT_SECONDS') ?: 15));
+    $uncacheableFile = $baseDir . '/uncacheable-pages.json';
+    $seedFile = $baseDir . '/seed-pages.json';
+    $translationFile = $baseDir . '/translation-pages.json';
+    $hotFile = $baseDir . '/hot-pages.json';
+    $reportFile = $baseDir . '/priority-warm-run.json';
+
+    @mkdir($baseDir, 0775, true);
+
+    function load_json($path, $default) {
+        if (!is_file($path)) {
+            return $default;
+        }
+        $data = json_decode((string)file_get_contents($path), true);
+        return is_array($data) ? $data : $default;
+    }
+
+    function atomic_write_json($path, $data) {
+        $tmp = $path . '.tmp';
+        file_put_contents($tmp, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        rename($tmp, $path);
+    }
+
+    function eligible_warm_path($url) {
+        if (!is_string($url) || $url === '') {
+            return false;
+        }
+        if ($url === '/') {
+            return true;
+        }
+        if (strpos($url, '/wiki/') !== 0) {
+            return false;
+        }
+        if (preg_match('#^/wiki/Special:#', $url)) {
+            return false;
+        }
+        foreach ([
+            '/wiki/Template:',
+            '/wiki/Module:',
+            '/wiki/User:',
+            '/wiki/Talk:',
+            '/wiki/File:',
+            '/wiki/Category:',
+            '/wiki/Concept:',
+            '/wiki/Property:'
+        ] as $blocked) {
+            if (strpos($url, $blocked) === 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function parse_response_headers($headers) {
+        $parsed = [];
+        foreach ($headers as $header) {
+            $pos = strpos($header, ':');
+            if ($pos === false) {
+                continue;
+            }
+            $name = strtolower(trim(substr($header, 0, $pos)));
+            $value = trim(substr($header, $pos + 1));
+            $parsed[$name][] = $value;
+        }
+        return $parsed;
+    }
+
+    function request_url($fullUrl, $timeout, array $extraHeaders = []) {
+        $ctx = stream_context_create([
+            'http' => [
+                'method' => 'GET',
+                'timeout' => $timeout,
+                'ignore_errors' => true,
+                'header' => implode("\r\n", array_merge([
+                    'User-Agent: WikiApiaryPriorityWarmer/1.0',
+                    'Accept: text/html,application/xhtml+xml',
+                    'Accept-Language: en'
+                ], $extraHeaders))
+            ],
+            'ssl' => [
+                'verify_peer' => false,
+                'verify_peer_name' => false
+            ]
+        ]);
+        $start = microtime(true);
+        $body = @file_get_contents($fullUrl, false, $ctx);
+        $elapsed = microtime(true) - $start;
+        $status = 0;
+        if (isset($http_response_header[0]) && preg_match('#\s(\d{3})\s#', $http_response_header[0], $m)) {
+            $status = (int)$m[1];
+        }
+        $headers = parse_response_headers($http_response_header ?? []);
+        $age = null;
+        if (!empty($headers['age'][0]) && ctype_digit((string)$headers['age'][0])) {
+            $age = (int)$headers['age'][0];
+        }
+        return [
+            'url' => $fullUrl,
+            'status' => $status,
+            'ok' => $body !== false && $status >= 200 && $status < 400,
+            'seconds' => round($elapsed, 3),
+            'age' => $age,
+            'via' => $headers['via'] ?? [],
+            'cacheControl' => $headers['cache-control'][0] ?? null,
+            'cache' => $headers['x-wikiapiary-cache'][0] ?? null,
+        ];
+    }
+
+    function expand_base_targets($baseUrl, $fanoutHost) {
+        $targets = [$baseUrl];
+        if ($fanoutHost === '') {
+            return $targets;
+        }
+        $ips = @gethostbynamel($fanoutHost);
+        if (!$ips || !is_array($ips)) {
+            return $targets;
+        }
+        $parts = parse_url($baseUrl);
+        $scheme = $parts['scheme'] ?? 'http';
+        $port = isset($parts['port']) ? ':' . $parts['port'] : '';
+        $path = rtrim($parts['path'] ?? '', '/');
+        $expanded = [];
+        foreach (array_values(array_unique($ips)) as $ip) {
+            $expanded[] = $scheme . '://' . $ip . $port . $path;
+        }
+        return $expanded ?: $targets;
+    }
+
+    $seedPages = load_json($seedFile, ['pages' => []])['pages'] ?? [];
+    $translationPages = load_json($translationFile, ['pages' => []])['pages'] ?? [];
+    $hotPages = load_json($hotFile, ['pages' => []])['pages'] ?? [];
+    $uncacheableMap = load_json($uncacheableFile, ['pages' => []])['pages'] ?? [];
+
+    $now = time();
+    foreach ($uncacheableMap as $path => $until) {
+        if (!is_numeric($until) || (int)$until <= $now) {
+            unset($uncacheableMap[$path]);
+        }
+    }
+
+    $tier1 = ['/', '/wiki/Main_Page', '/wiki/Websites', '/wiki/Websites/WikiTeam'];
+    $ordered = [];
+    $prioritySeeds = [];
+    foreach ($seedPages as $path) {
+        if (is_priority_seed_path($path)) {
+            $prioritySeeds[] = $path;
+        }
+    }
+
+    foreach (array_merge($tier1, $translationPages, $prioritySeeds, array_slice($hotPages, 0, $priorityHotPagesLimit)) as $path) {
+        if (eligible_warm_path($path) && !isset($ordered[$path]) && !isset($uncacheableMap[$path])) {
+            $ordered[$path] = true;
+        }
+    }
+    $targets = array_slice(array_keys($ordered), 0, $priorityPagesLimit);
+
+    $warmTargets = expand_base_targets($warmBaseUrl, $warmFanoutHost);
+    $warmHeaders = [];
+    if ($warmHostHeader !== '') {
+        $warmHeaders[] = 'Host: ' . $warmHostHeader;
+    }
+
+    $results = [];
+    foreach ($targets as $path) {
+        $targetResults = [];
+        $allOk = true;
+        foreach ($warmTargets as $base) {
+            $refresh = request_url($base . $path, $requestTimeout, $warmHeaders);
+            $targetResults[] = array_merge(['base' => $base], $refresh);
+            if (empty($refresh['ok'])) {
+                $allOk = false;
+            }
+        }
+        $primary = $targetResults[0] ?? ['status' => 0, 'cacheControl' => null, 'seconds' => null, 'age' => null];
+        $results[] = [
+            'url' => $siteServer . $path,
+            'path' => $path,
+            'refresh' => $primary,
+            'targetResults' => $targetResults,
+            'ok' => $allOk,
+            'seconds' => $primary['seconds'] ?? null,
+            'ageAfter' => $primary['age'] ?? null
+        ];
+        usleep(100000);
+    }
+
+    atomic_write_json($reportFile, [
+        'generatedAt' => gmdate('c'),
+        'prioritySeeds' => $prioritySeeds,
+        'targets' => $targets,
+        'results' => $results
+    ]);
+
+    $ok = 0;
+    foreach ($results as $result) {
+        if (!empty($result['ok'])) {
+            $ok++;
+        }
+    }
+    echo "priority-warmed=" . count($results) . " ok=" . $ok . PHP_EOL;
   worker.php: |
     <?php
     error_reporting(E_ALL);

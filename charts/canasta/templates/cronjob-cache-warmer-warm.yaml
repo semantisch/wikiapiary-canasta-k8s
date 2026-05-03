@@ -2,6 +2,74 @@
 apiVersion: batch/v1
 kind: CronJob
 metadata:
+  name: {{ include "canasta.fullname" . }}-cache-warm-priority
+  namespace: {{ include "canasta.namespace" . }}
+  labels:
+    {{- include "canasta.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cache-warmer
+spec:
+  schedule: {{ .Values.cacheWarmer.priorityWarmSchedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            {{- include "canasta.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: cache-warmer
+        spec:
+          restartPolicy: Never
+          {{- $nodeSelector := .Values.cacheWarmer.nodeSelector | default .Values.nodeSelector }}
+          {{- with $nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          containers:
+            - name: warm-priority
+              image: {{ .Values.cacheWarmer.image | default (include "canasta.image" .) }}
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command: ["/bin/sh", "/scripts/run-warm-priority.sh"]
+              env:
+                - name: SITE_SERVER
+                  value: "https://{{ index .Values.domains 0 }}"
+                - name: WARM_BASE_URL
+                  value: "{{ .Values.cacheWarmer.requestBaseUrl }}"
+                - name: WARM_FANOUT_HOST
+                  value: "{{ .Values.cacheWarmer.warmFanoutHost }}"
+                - name: WARM_HOST_HEADER
+                  value: "{{ index .Values.domains 0 }}"
+                - name: WARM_CACHE_DIR
+                  value: /warm-cache
+                - name: PRIORITY_HOT_PAGES_LIMIT
+                  value: "{{ .Values.cacheWarmer.priorityHotPagesLimit }}"
+                - name: PRIORITY_PAGES_LIMIT
+                  value: "{{ .Values.cacheWarmer.priorityPagesLimit }}"
+                - name: REQUEST_TIMEOUT_SECONDS
+                  value: "{{ .Values.cacheWarmer.requestTimeoutSeconds }}"
+              volumeMounts:
+                - name: scripts
+                  mountPath: /scripts
+                  readOnly: true
+                - name: cache-warm
+                  mountPath: /warm-cache
+              {{- with .Values.cacheWarmer.resources }}
+              resources:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+          volumes:
+            - name: scripts
+              configMap:
+                name: {{ include "canasta.fullname" . }}-cache-warmer
+                defaultMode: 0755
+            - name: cache-warm
+              persistentVolumeClaim:
+                claimName: {{ include "canasta.fullname" . }}-cache-warm
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
   name: {{ include "canasta.fullname" . }}-cache-warm
   namespace: {{ include "canasta.namespace" . }}
   labels:

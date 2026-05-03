@@ -66,15 +66,18 @@ cacheWarmer:
   nodeSelector:
     wikiapiary-role: worker
   discoverSchedule: "*/20 * * * *"
+  priorityWarmSchedule: "*/1 * * * *"
   warmSchedule: "*/5 * * * *"
   accessLogTail: 6000
   biggestWikisLimit: 100
   largestBatchSize: 20
   hotPagesLimit: 100
+  priorityHotPagesLimit: 16
   semanticDiscoveryLimit: 50
   semanticSetLimit: 250
   recentChangesLimit: 30
   warmPagesLimit: 120
+  priorityPagesLimit: 64
   queuePollSeconds: 5
   queueBatchSize: 60
   tier1RefreshSeconds: 900
