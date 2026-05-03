@@ -22,7 +22,8 @@ spec:
         checksum/web-config: {{ .Values.configData.web | toJson | sha256sum }}
         checksum/env-config: {{ .Values.configData.env | default dict | toJson | sha256sum }}
     spec:
-      {{- with .Values.nodeSelector }}
+      {{- $nodeSelector := .Values.jobrunner.nodeSelector | default .Values.nodeSelector }}
+      {{- with $nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}

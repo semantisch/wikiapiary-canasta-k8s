@@ -7,7 +7,7 @@ metadata:
     {{- include "canasta.labels" . | nindent 4 }}
     app.kubernetes.io/component: caddy
 spec:
-  replicas: 1
+  replicas: {{ .Values.caddy.replicaCount }}
   selector:
     matchLabels:
       {{- include "canasta.selectorLabels" . | nindent 6 }}
@@ -20,9 +20,30 @@ spec:
       annotations:
         checksum/caddy-config: {{ .Values.configData.caddy | toJson | sha256sum }}
     spec:
-      {{- with .Values.nodeSelector }}
+      {{- $nodeSelector := .Values.caddy.nodeSelector | default .Values.nodeSelector }}
+      {{- with $nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.caddy.spreadAcrossNodes }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "canasta.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: caddy
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    {{- include "canasta.selectorLabels" . | nindent 20 }}
+                    app.kubernetes.io/component: caddy
       {{- end }}
       containers:
         - name: caddy

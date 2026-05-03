@@ -8,7 +8,7 @@ metadata:
     {{- include "canasta.labels" . | nindent 4 }}
     app.kubernetes.io/component: varnish
 spec:
-  replicas: 1
+  replicas: {{ .Values.varnish.replicaCount }}
   selector:
     matchLabels:
       {{- include "canasta.selectorLabels" . | nindent 6 }}
@@ -21,9 +21,30 @@ spec:
       annotations:
         checksum/varnish-config: {{ ternary (.Values.configData.varnish | toJson) (.Files.Get "files/default.vcl") (not .Values.configData.varnish) | sha256sum }}
     spec:
-      {{- with .Values.nodeSelector }}
+      {{- $nodeSelector := .Values.varnish.nodeSelector | default .Values.nodeSelector }}
+      {{- with $nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.varnish.spreadAcrossNodes }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "canasta.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: varnish
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    {{- include "canasta.selectorLabels" . | nindent 20 }}
+                    app.kubernetes.io/component: varnish
       {{- end }}
       containers:
         - name: varnish

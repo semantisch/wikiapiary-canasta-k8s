@@ -19,7 +19,8 @@ spec:
         {{- include "canasta.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: redis
     spec:
-      {{- with .Values.nodeSelector }}
+      {{- $nodeSelector := .Values.redis.nodeSelector | default .Values.nodeSelector }}
+      {{- with $nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}

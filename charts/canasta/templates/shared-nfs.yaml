@@ -1,0 +1,223 @@
+{{- if .Values.sharedNfs.enabled }}
+{{- $fullname := include "canasta.fullname" . -}}
+{{- $namespace := include "canasta.namespace" . -}}
+{{- $rwxStorageClass := .Values.sharedNfs.storageClassName | default (printf "%s-rwx-static" $fullname) -}}
+{{- $imagesPv := .Values.persistence.images.volumeName | default (printf "%s-rwx-images" $fullname) -}}
+{{- $extensionsPv := .Values.persistence.extensions.volumeName | default (printf "%s-rwx-extensions" $fullname) -}}
+{{- $skinsPv := .Values.persistence.skins.volumeName | default (printf "%s-rwx-skins" $fullname) -}}
+{{- $publicAssetsPv := .Values.persistence.publicAssets.volumeName | default (printf "%s-rwx-public-assets" $fullname) -}}
+{{- $cacheWarmPv := .Values.persistence.cacheWarm.volumeName | default (printf "%s-rwx-cache-warm" $fullname) -}}
+{{- if not .Values.sharedNfs.service.clusterIP }}
+{{- fail "sharedNfs.service.clusterIP must be set when sharedNfs.enabled=true" }}
+{{- end }}
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: {{ $rwxStorageClass }}
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: Immediate
+reclaimPolicy: Retain
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $fullname }}-rwx-nfs-backing
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "canasta.labels" . | nindent 4 }}
+    app.kubernetes.io/component: shared-nfs
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.sharedNfs.backing.storageClass }}
+  storageClassName: {{ .Values.sharedNfs.backing.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.sharedNfs.backing.size }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}-rwx-nfs
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "canasta.labels" . | nindent 4 }}
+    app.kubernetes.io/component: shared-nfs
+spec:
+  type: ClusterIP
+  clusterIP: {{ .Values.sharedNfs.service.clusterIP }}
+  ports:
+    - name: nfs
+      port: 2049
+      targetPort: nfs
+      protocol: TCP
+  selector:
+    {{- include "canasta.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: shared-nfs
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}-rwx-nfs
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "canasta.labels" . | nindent 4 }}
+    app.kubernetes.io/component: shared-nfs
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "canasta.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: shared-nfs
+  template:
+    metadata:
+      labels:
+        {{- include "canasta.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: shared-nfs
+    spec:
+      {{- with .Values.sharedNfs.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        - name: init-exports
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              mkdir -p /exports/images /exports/extensions /exports/skins /exports/public-assets /exports/cache-warm
+          volumeMounts:
+            - name: exports
+              mountPath: /exports
+      containers:
+        - name: nfs
+          image: {{ .Values.sharedNfs.image }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: SHARED_DIRECTORY
+              value: /exports
+          securityContext:
+            privileged: true
+          ports:
+            - name: nfs
+              containerPort: 2049
+              protocol: TCP
+          volumeMounts:
+            - name: exports
+              mountPath: /exports
+          {{- with .Values.sharedNfs.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          readinessProbe:
+            tcpSocket:
+              port: nfs
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: nfs
+            initialDelaySeconds: 15
+            periodSeconds: 30
+      volumes:
+        - name: exports
+          persistentVolumeClaim:
+            claimName: {{ $fullname }}-rwx-nfs-backing
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ $imagesPv }}
+spec:
+  capacity:
+    storage: {{ .Values.persistence.images.size }}
+  accessModes: [ "ReadWriteMany" ]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: {{ $rwxStorageClass }}
+  mountOptions:
+    - nfsvers=4.1
+    - hard
+    - timeo=600
+    - retrans=2
+  nfs:
+    server: {{ .Values.sharedNfs.service.clusterIP }}
+    path: /images
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ $extensionsPv }}
+spec:
+  capacity:
+    storage: {{ .Values.persistence.extensions.size | default "1Gi" }}
+  accessModes: [ "ReadWriteMany" ]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: {{ $rwxStorageClass }}
+  mountOptions:
+    - nfsvers=4.1
+    - hard
+    - timeo=600
+    - retrans=2
+  nfs:
+    server: {{ .Values.sharedNfs.service.clusterIP }}
+    path: /extensions
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ $skinsPv }}
+spec:
+  capacity:
+    storage: {{ .Values.persistence.skins.size | default "1Gi" }}
+  accessModes: [ "ReadWriteMany" ]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: {{ $rwxStorageClass }}
+  mountOptions:
+    - nfsvers=4.1
+    - hard
+    - timeo=600
+    - retrans=2
+  nfs:
+    server: {{ .Values.sharedNfs.service.clusterIP }}
+    path: /skins
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ $publicAssetsPv }}
+spec:
+  capacity:
+    storage: {{ .Values.persistence.publicAssets.size | default "1Gi" }}
+  accessModes: [ "ReadWriteMany" ]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: {{ $rwxStorageClass }}
+  mountOptions:
+    - nfsvers=4.1
+    - hard
+    - timeo=600
+    - retrans=2
+  nfs:
+    server: {{ .Values.sharedNfs.service.clusterIP }}
+    path: /public-assets
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ $cacheWarmPv }}
+spec:
+  capacity:
+    storage: {{ .Values.persistence.cacheWarm.size }}
+  accessModes: [ "ReadWriteMany" ]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: {{ $rwxStorageClass }}
+  mountOptions:
+    - nfsvers=4.1
+    - hard
+    - timeo=600
+    - retrans=2
+  nfs:
+    server: {{ .Values.sharedNfs.service.clusterIP }}
+    path: /cache-warm
+{{- end }}

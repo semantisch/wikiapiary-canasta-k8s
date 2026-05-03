@@ -21,6 +21,8 @@ nodeSelector: {}
 # Web tier
 web:
   replicaCount: 1
+  spreadAcrossNodes: false
+  nodeSelector: {}
   skipStartupUpdate: false
   resources:
     requests:
@@ -33,6 +35,9 @@ web:
 # Caddy (reverse proxy + wiki farm routing)
 caddy:
   image: caddy:2.10.2-alpine
+  replicaCount: 1
+  spreadAcrossNodes: false
+  nodeSelector: {}
   resources:
     requests:
       cpu: 50m
@@ -45,6 +50,9 @@ caddy:
 varnish:
   enabled: true
   image: varnish:7.0.2-alpine
+  replicaCount: 1
+  spreadAcrossNodes: false
+  nodeSelector: {}
   resources:
     requests:
       cpu: 100m
@@ -57,6 +65,7 @@ varnish:
 redis:
   enabled: false
   image: redis:7.2-alpine
+  nodeSelector: {}
   resources:
     requests:
       cpu: 50m
@@ -71,6 +80,8 @@ cacheWarmer:
   workerEnabled: false
   image: ""
   requestBaseUrl: "http://varnish"
+  warmFanoutHost: ""
+  nodeSelector: {}
   discoverSchedule: "*/20 * * * *"
   warmSchedule: "*/5 * * * *"
   accessLogTail: 4000
@@ -103,6 +114,7 @@ db:
   storageClass: ""
   hostOverride: ""
   portOverride: ""
+  nodeSelector: {}
   resources:
     requests:
       cpu: 100m
@@ -125,6 +137,7 @@ elasticsearch:
   storage: 5Gi
   storageClass: ""
   javaOpts: "-Xms512m -Xmx512m"
+  nodeSelector: {}
   resources:
     requests:
       cpu: 250m
@@ -137,6 +150,7 @@ elasticsearch:
 jobrunner:
   enabled: true
   replicaCount: 1
+  nodeSelector: {}
   runJobsArgs: "--wait --maxjobs=10"
   resources:
     requests:
@@ -185,22 +199,45 @@ persistence:
     size: 10Gi
     storageClass: ""
     accessMode: ReadWriteOnce
+    volumeName: ""
   extensions:
     size: 1Gi
     storageClass: ""
     accessMode: ReadWriteOnce
+    volumeName: ""
   skins:
     size: 1Gi
     storageClass: ""
     accessMode: ReadWriteOnce
+    volumeName: ""
   publicAssets:
     size: 1Gi
     storageClass: ""
     accessMode: ReadWriteOnce
+    volumeName: ""
   cacheWarm:
     size: 256Mi
     storageClass: ""
     accessMode: ReadWriteOnce
+    volumeName: ""
+
+sharedNfs:
+  enabled: false
+  image: itsthenetwork/nfs-server-alpine:12
+  service:
+    clusterIP: ""
+  storageClassName: ""
+  backing:
+    size: 20Gi
+    storageClass: ""
+  nodeSelector: {}
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
 
 # Secrets — names of K8s Secrets created by Ansible (not stored here)
 secrets:

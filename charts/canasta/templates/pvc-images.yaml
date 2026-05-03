@@ -8,6 +8,9 @@ metadata:
 spec:
   accessModes:
     - {{ .Values.persistence.images.accessMode }}
+  {{- if .Values.persistence.images.volumeName }}
+  volumeName: {{ .Values.persistence.images.volumeName }}
+  {{- end }}
   {{- if .Values.persistence.images.storageClass }}
   storageClassName: {{ .Values.persistence.images.storageClass }}
   {{- end }}

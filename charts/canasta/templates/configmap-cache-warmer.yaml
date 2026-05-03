@@ -414,6 +414,7 @@ data:
     $uncacheableFile = $baseDir . '/uncacheable-pages.json';
     $siteServer = rtrim(getenv('SITE_SERVER') ?: 'https://wikiapiary.dobriy.ai', '/');
     $warmBaseUrl = rtrim(getenv('WARM_BASE_URL') ?: $siteServer, '/');
+    $warmFanoutHost = getenv('WARM_FANOUT_HOST') ?: '';
     $warmHostHeader = getenv('WARM_HOST_HEADER') ?: '';
     $recentChangesLimit = max(5, (int)(getenv('RECENT_CHANGES_LIMIT') ?: 25));
     $largestBatchSize = max(1, (int)(getenv('LARGEST_BATCH_SIZE') ?: 20));
@@ -551,6 +552,26 @@ data:
         return $last;
     }
 
+    function expand_base_targets($baseUrl, $fanoutHost) {
+        $targets = [$baseUrl];
+        if ($fanoutHost === '') {
+            return $targets;
+        }
+        $ips = @gethostbynamel($fanoutHost);
+        if (!$ips || !is_array($ips)) {
+            return $targets;
+        }
+        $parts = parse_url($baseUrl);
+        $scheme = $parts['scheme'] ?? 'http';
+        $port = isset($parts['port']) ? ':' . $parts['port'] : '';
+        $path = rtrim($parts['path'] ?? '', '/');
+        $expanded = [];
+        foreach (array_values(array_unique($ips)) as $ip) {
+            $expanded[] = $scheme . '://' . $ip . $port . $path;
+        }
+        return $expanded ?: $targets;
+    }
+
     $seedPages = load_json($seedFile, ['pages' => []])['pages'] ?? [];
     $translationPages = load_json($translationFile, ['pages' => []])['pages'] ?? [];
     $hotPages = load_json($hotFile, ['pages' => []])['pages'] ?? [];
@@ -571,6 +592,7 @@ data:
     if ($warmHostHeader !== '') {
         $warmHeaders[] = 'Host: ' . $warmHostHeader;
     }
+    $warmTargets = expand_base_targets($warmBaseUrl, $warmFanoutHost);
 
     $recentChanges = fetch_json(
         $warmBaseUrl . '/w/api.php?action=query&list=recentchanges&rcnamespace=0&rclimit=' . $recentChangesLimit . '&rcprop=title|ids|timestamp&format=json',
@@ -620,9 +642,18 @@ data:
 
     $results = [];
     foreach ($targets as $path) {
-        $refresh = request_url($warmBaseUrl . $path, $requestTimeout, 'GET', $warmHeaders);
-        $cacheControl = strtolower((string)($refresh['cacheControl'] ?? ''));
-        if (($refresh['status'] ?? 0) === 404) {
+        $targetResults = [];
+        $allOk = true;
+        foreach ($warmTargets as $base) {
+            $refresh = request_url($base . $path, $requestTimeout, 'GET', $warmHeaders);
+            $targetResults[] = array_merge(['base' => $base], $refresh);
+            if (empty($refresh['ok'])) {
+                $allOk = false;
+            }
+        }
+        $primary = $targetResults[0] ?? ['status' => 0, 'cacheControl' => null, 'seconds' => null, 'age' => null];
+        $cacheControl = strtolower((string)($primary['cacheControl'] ?? ''));
+        if (($primary['status'] ?? 0) === 404) {
             $uncacheableMap[$path] = time() + $uncacheableTtl;
         } elseif ($cacheControl !== '' && (strpos($cacheControl, 'no-store') !== false || strpos($cacheControl, 'private') !== false)) {
             $uncacheableMap[$path] = time() + $uncacheableTtl;
@@ -630,11 +661,12 @@ data:
         $results[] = [
             'url' => $siteServer . $path,
             'path' => $path,
-            'refresh' => $refresh,
+            'refresh' => $primary,
+            'targetResults' => $targetResults,
             'action' => 'warm',
-            'ok' => !empty($refresh['ok']),
-            'seconds' => $refresh['seconds'] ?? null,
-            'ageAfter' => $refresh['age'] ?? null
+            'ok' => $allOk,
+            'seconds' => $primary['seconds'] ?? null,
+            'ageAfter' => $primary['age'] ?? null
         ];
         usleep(150000);
     }
@@ -686,6 +718,7 @@ data:
     $workerStateFile = $baseDir . '/rewarm-worker-state.json';
     $startupStampFile = $baseDir . '/varnish-startup.stamp';
     $warmBaseUrl = rtrim(getenv('WARM_BASE_URL') ?: $siteServer, '/');
+    $warmFanoutHost = getenv('WARM_FANOUT_HOST') ?: '';
     $warmHostHeader = getenv('WARM_HOST_HEADER') ?: '';
     $pollSeconds = max(3, (int)(getenv('QUEUE_POLL_SECONDS') ?: 10));
     $queueBatchSize = max(5, (int)(getenv('QUEUE_BATCH_SIZE') ?: 60));
@@ -797,6 +830,26 @@ data:
             }
         }
         return $last;
+    }
+
+    function expand_base_targets($baseUrl, $fanoutHost) {
+        $targets = [$baseUrl];
+        if ($fanoutHost === '') {
+            return $targets;
+        }
+        $ips = @gethostbynamel($fanoutHost);
+        if (!$ips || !is_array($ips)) {
+            return $targets;
+        }
+        $parts = parse_url($baseUrl);
+        $scheme = $parts['scheme'] ?? 'http';
+        $port = isset($parts['port']) ? ':' . $parts['port'] : '';
+        $path = rtrim($parts['path'] ?? '', '/');
+        $expanded = [];
+        foreach (array_values(array_unique($ips)) as $ip) {
+            $expanded[] = $scheme . '://' . $ip . $port . $path;
+        }
+        return $expanded ?: $targets;
     }
 
     function append_queue_items($queueFile, array $entries, $reason) {
@@ -939,24 +992,8 @@ data:
         if ($startupStamp !== '' && $startupStamp !== $lastStartupStamp) {
             $priorityTier = array_values(array_diff(tier1_core_pages($baseDir), array_keys($uncacheableMap)));
             $bulkTier = array_values(array_diff(tier1_largest_pages($baseDir), array_keys($uncacheableMap)));
-            $priorityEntries = [];
-            foreach ($priorityTier as $path) {
-                $priorityEntries[] = [
-                    'path' => $path,
-                    'baseUrl' => $startupPodBaseUrl ?: $siteServer,
-                    'hostHeader' => $startupPodBaseUrl ? $siteHost : null,
-                ];
-            }
-            $bulkEntries = [];
-            foreach ($bulkTier as $path) {
-                $bulkEntries[] = [
-                    'path' => $path,
-                    'baseUrl' => $startupPodBaseUrl ?: $siteServer,
-                    'hostHeader' => $startupPodBaseUrl ? $siteHost : null,
-                ];
-            }
-            $priorityCount = append_queue_items($priorityQueueFile, $priorityEntries, 'varnish-startup-priority');
-            $bulkCount = append_queue_items($queueFile, $bulkEntries, 'varnish-startup-largest');
+            $priorityCount = append_queue_items($priorityQueueFile, $priorityTier, 'varnish-startup-priority');
+            $bulkCount = append_queue_items($queueFile, $bulkTier, 'varnish-startup-largest');
             echo gmdate('c') . " startup stamp changed, queued priority={$priorityCount} largest={$bulkCount}\n";
             $lastStartupStamp = $startupStamp;
         }
@@ -995,20 +1032,43 @@ data:
             }
             $seen[$path] = true;
             $attempt = max(0, (int)($entry['attempt'] ?? 0));
-            $baseUrl = !empty($entry['baseUrl']) && is_string($entry['baseUrl']) ? rtrim($entry['baseUrl'], '/') : $warmBaseUrl;
+            $baseTargets = [];
+            if (!empty($entry['baseUrl']) && is_string($entry['baseUrl'])) {
+                $baseTargets = [rtrim($entry['baseUrl'], '/')];
+            } else {
+                $baseTargets = expand_base_targets($warmBaseUrl, $warmFanoutHost);
+            }
             $headers = [];
             if (!empty($entry['hostHeader']) && is_string($entry['hostHeader'])) {
                 $headers[] = 'Host: ' . $entry['hostHeader'];
             } elseif ($warmHostHeader !== '') {
                 $headers[] = 'Host: ' . $warmHostHeader;
             }
-            $refresh = request_url($baseUrl . $path, $requestTimeout, $headers);
+            $primaryRefresh = null;
+            $allOk = true;
+            foreach ($baseTargets as $baseUrl) {
+                $refresh = request_url($baseUrl . $path, $requestTimeout, $headers);
+                if ($primaryRefresh === null) {
+                    $primaryRefresh = $refresh;
+                }
+                if (empty($refresh['ok'])) {
+                    $allOk = false;
+                }
+                echo gmdate('c') . " queue={$queueKind} path={$path} reason=" . ($entry['reason'] ?? 'queue') .
+                    " attempt={$attempt}" .
+                    " base=" . $baseUrl .
+                    " status=" . ($refresh['status'] ?? 0) .
+                    " cache=" . ($refresh['cache'] ?? '-') .
+                    " age=" . (($refresh['age'] ?? '') === null ? '-' : $refresh['age']) .
+                    " seconds=" . ($refresh['seconds'] ?? '-') . "\n";
+            }
+            $refresh = $primaryRefresh ?: ['status' => 0, 'cacheControl' => null];
             $cacheControl = strtolower((string)($refresh['cacheControl'] ?? ''));
             if (($refresh['status'] ?? 0) === 404) {
                 $uncacheableMap[$path] = time() + $uncacheableTtl;
             } elseif ($cacheControl !== '' && (strpos($cacheControl, 'no-store') !== false || strpos($cacheControl, 'private') !== false)) {
                 $uncacheableMap[$path] = time() + $uncacheableTtl;
-            } elseif (empty($refresh['ok']) && $attempt < 2) {
+            } elseif (!$allOk && $attempt < 2) {
                 append_queue_items($queueKind === 'priority' ? $priorityQueueFile : $queueFile, [[
                     'path' => $path,
                     'attempt' => $attempt + 1,
@@ -1016,13 +1076,6 @@ data:
                     'hostHeader' => $entry['hostHeader'] ?? null,
                 ]], ($entry['reason'] ?? 'queue') . '-retry');
             }
-            echo gmdate('c') . " queue={$queueKind} path={$path} reason=" . ($entry['reason'] ?? 'queue') .
-                " attempt={$attempt}" .
-                " base=" . $baseUrl .
-                " status=" . ($refresh['status'] ?? 0) .
-                " cache=" . ($refresh['cache'] ?? '-') .
-                " age=" . (($refresh['age'] ?? '') === null ? '-' : $refresh['age']) .
-                " seconds=" . ($refresh['seconds'] ?? '-') . "\n";
             $processed++;
             usleep(100000);
         }

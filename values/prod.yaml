@@ -10,11 +10,13 @@ domains:
   - wikiapiary.dobriy.ai
   - dev.wikiapiary.com
 
-nodeSelector:
-  kubernetes.io/hostname: dobriyai-hosting-2
+nodeSelector: {}
 
 web:
-  replicaCount: 1
+  replicaCount: 2
+  spreadAcrossNodes: true
+  nodeSelector:
+    wikiapiary-role: worker
   skipStartupUpdate: true
   resources:
     requests:
@@ -25,6 +27,10 @@ web:
       memory: 3Gi
 
 caddy:
+  replicaCount: 2
+  spreadAcrossNodes: true
+  nodeSelector:
+    wikiapiary-role: worker
   resources:
     requests:
       cpu: 100m
@@ -35,9 +41,15 @@ caddy:
 
 varnish:
   enabled: true
+  replicaCount: 2
+  spreadAcrossNodes: true
+  nodeSelector:
+    wikiapiary-role: worker
 
 redis:
   enabled: true
+  nodeSelector:
+    wikiapiary-role: worker
   resources:
     requests:
       cpu: 100m
@@ -50,6 +62,9 @@ cacheWarmer:
   enabled: true
   workerEnabled: true
   requestBaseUrl: "http://varnish"
+  warmFanoutHost: "varnish-headless"
+  nodeSelector:
+    wikiapiary-role: worker
   discoverSchedule: "*/20 * * * *"
   warmSchedule: "*/5 * * * *"
   accessLogTail: 6000
@@ -79,6 +94,8 @@ db:
   storageClass: local-path
   hostOverride: 10.43.137.104
   portOverride: "3306"
+  nodeSelector:
+    kubernetes.io/hostname: dobriyai-hosting-2
   resources:
     requests:
       cpu: 500m
@@ -93,6 +110,8 @@ elasticsearch:
   storage: 40Gi
   storageClass: local-path
   javaOpts: "-Xms2g -Xmx2g"
+  nodeSelector:
+    kubernetes.io/hostname: dobriyai-hosting-2
   resources:
     requests:
       cpu: 500m
@@ -104,6 +123,8 @@ elasticsearch:
 jobrunner:
   enabled: true
   replicaCount: 2
+  nodeSelector:
+    wikiapiary-role: worker
   runJobsArgs: "--wait --maxjobs=100 --procs=4 --nothrottle"
   resources:
     requests:
@@ -156,24 +177,40 @@ ingress:
 persistence:
   images:
     size: 10Gi
-    storageClass: local-path
-    accessMode: ReadWriteOnce
+    storageClass: wikiapiary-live-rwx-static
+    accessMode: ReadWriteMany
+    volumeName: canasta-wikiapiary-live-rwx-images
   extensions:
     size: 2Gi
-    storageClass: local-path
-    accessMode: ReadWriteOnce
+    storageClass: wikiapiary-live-rwx-static
+    accessMode: ReadWriteMany
+    volumeName: canasta-wikiapiary-live-rwx-extensions
   skins:
     size: 1Gi
-    storageClass: local-path
-    accessMode: ReadWriteOnce
+    storageClass: wikiapiary-live-rwx-static
+    accessMode: ReadWriteMany
+    volumeName: canasta-wikiapiary-live-rwx-skins
   publicAssets:
     size: 1Gi
-    storageClass: local-path
-    accessMode: ReadWriteOnce
+    storageClass: wikiapiary-live-rwx-static
+    accessMode: ReadWriteMany
+    volumeName: canasta-wikiapiary-live-rwx-public-assets
   cacheWarm:
     size: 512Mi
+    storageClass: wikiapiary-live-rwx-static
+    accessMode: ReadWriteMany
+    volumeName: canasta-wikiapiary-live-rwx-cache-warm
+
+sharedNfs:
+  enabled: true
+  service:
+    clusterIP: 10.43.250.50
+  storageClassName: wikiapiary-live-rwx-static
+  backing:
+    size: 20Gi
     storageClass: local-path
-    accessMode: ReadWriteOnce
+  nodeSelector:
+    kubernetes.io/hostname: dobriyai-hosting-2
 
 secrets:
   dbSecretName: wikiapiary-db-credentials

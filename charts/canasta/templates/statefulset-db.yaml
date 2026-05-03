@@ -20,7 +20,8 @@ spec:
         {{- include "canasta.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: db
     spec:
-      {{- with .Values.nodeSelector }}
+      {{- $nodeSelector := .Values.db.nodeSelector | default .Values.nodeSelector }}
+      {{- with $nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}

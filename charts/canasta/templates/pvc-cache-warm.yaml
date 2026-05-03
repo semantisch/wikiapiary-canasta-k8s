@@ -8,6 +8,9 @@ metadata:
 spec:
   accessModes:
     - {{ .Values.persistence.cacheWarm.accessMode }}
+  {{- if .Values.persistence.cacheWarm.volumeName }}
+  volumeName: {{ .Values.persistence.cacheWarm.volumeName }}
+  {{- end }}
   resources:
     requests:
       storage: {{ .Values.persistence.cacheWarm.size }}

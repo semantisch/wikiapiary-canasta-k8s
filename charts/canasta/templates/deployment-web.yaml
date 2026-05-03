@@ -25,9 +25,30 @@ spec:
         checksum/env-config: {{ .Values.configData.env | default dict | toJson | sha256sum }}
         checksum/extension-overrides: {{ ternary (printf "%s%s" (.Files.Get "files/wikiapiary/Stats.php") (.Files.Get "files/wikiapiary/stats-snapshot.json") | sha256sum) "" .Values.extensionOverrides.enabled }}
     spec:
-      {{- with .Values.nodeSelector }}
+      {{- $nodeSelector := .Values.web.nodeSelector | default .Values.nodeSelector }}
+      {{- with $nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.web.spreadAcrossNodes }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "canasta.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: web
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    {{- include "canasta.selectorLabels" . | nindent 20 }}
+                    app.kubernetes.io/component: web
       {{- end }}
       initContainers:
         - name: assemble-config

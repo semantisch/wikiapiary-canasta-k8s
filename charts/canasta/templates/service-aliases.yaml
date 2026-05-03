@@ -85,6 +85,26 @@ spec:
   selector:
     {{- include "canasta.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: varnish
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: varnish-headless
+  namespace: {{ include "canasta.namespace" . }}
+  labels:
+    {{- include "canasta.labels" . | nindent 4 }}
+    app.kubernetes.io/component: varnish
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  ports:
+    - port: 80
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "canasta.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: varnish
 {{- end }}
 ---
 {{- if .Values.elasticsearch.enabled }}

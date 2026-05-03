@@ -21,7 +21,8 @@ spec:
             app.kubernetes.io/component: cache-warmer
         spec:
           restartPolicy: Never
-          {{- with .Values.nodeSelector }}
+          {{- $nodeSelector := .Values.cacheWarmer.nodeSelector | default .Values.nodeSelector }}
+          {{- with $nodeSelector }}
           nodeSelector:
             {{- toYaml . | nindent 12 }}
           {{- end }}
