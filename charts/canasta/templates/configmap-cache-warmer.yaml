@@ -123,7 +123,25 @@ data:
         }
         $title = substr($url, strlen('/wiki/'));
         $slashCount = substr_count($title, '/');
-        return $slashCount <= 1;
+        if ($slashCount === 0) {
+            return true;
+        }
+        return in_array($url, [
+            '/wiki/Websites/Birthday_today',
+            '/wiki/Websites/Oldest',
+            '/wiki/Websites/Youngest',
+            '/wiki/Host:Hosts/By_hostname',
+            '/wiki/Host:Hosts/CDN',
+            '/wiki/Host:Hosts/Commercial',
+            '/wiki/Host:Hosts/Empty',
+            '/wiki/Host:Hosts/Government',
+            '/wiki/Host:Hosts/Non-profit',
+            '/wiki/Host:Hosts/Registry',
+            '/wiki/Host:Hosts/University',
+            '/wiki/Farm:Farms/Not_collecting',
+            '/wiki/Extension:Extensions/Merged_and_Bundled',
+            '/wiki/Extension:Extensions/Standalone_and_Farm',
+        ], true);
     }
 
     function fetch_text($url, $timeout, array $extraHeaders = []) {
@@ -904,6 +922,13 @@ data:
         $allOk = true;
         foreach ($warmTargets as $base) {
             $refresh = request_url($base . $path, $requestTimeout, $warmHeaders);
+            if (!empty($refresh['ok']) && (($refresh['cache'] ?? '') !== 'HIT' || ($refresh['age'] ?? null) === null)) {
+                usleep(100000);
+                $retry = request_url($base . $path, $requestTimeout, $warmHeaders);
+                if (!empty($retry['ok'])) {
+                    $refresh = $retry;
+                }
+            }
             $targetResults[] = array_merge(['base' => $base], $refresh);
             if (empty($refresh['ok'])) {
                 $allOk = false;
@@ -1288,6 +1313,13 @@ data:
             $allOk = true;
             foreach ($baseTargets as $baseUrl) {
                 $refresh = request_url($baseUrl . $path, $requestTimeout, $headers);
+                if (!empty($refresh['ok']) && (($refresh['cache'] ?? '') !== 'HIT' || ($refresh['age'] ?? null) === null)) {
+                    usleep(100000);
+                    $retry = request_url($baseUrl . $path, $requestTimeout, $headers);
+                    if (!empty($retry['ok'])) {
+                        $refresh = $retry;
+                    }
+                }
                 if ($primaryRefresh === null) {
                     $primaryRefresh = $refresh;
                 }

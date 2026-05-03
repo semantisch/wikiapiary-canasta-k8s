@@ -170,7 +170,7 @@ sub vcl_backend_response {
           # MediaWiki occasionally emits an anonymous session cookie on an
           # otherwise public wiki page. Strip that cookie so the page can stay
           # cacheable, but keep passing anything that looks user-specific.
-          if (bereq.url ~ "^/wiki/"
+          if ((bereq.url == "/" || bereq.url ~ "^/wiki/")
               && bereq.url !~ "^/wiki/Special:"
               && beresp.http.Set-Cookie ~ "wikiapiary_session="
               && beresp.http.Set-Cookie !~ "(UserID|UserName|Token|centralauth_)") {
@@ -186,7 +186,7 @@ sub vcl_backend_response {
           return (deliver);
         }
 
-        if (bereq.url ~ "^/wiki/" && bereq.url !~ "^/wiki/Special:" && beresp.http.Vary) {
+        if ((bereq.url == "/" || bereq.url ~ "^/wiki/") && bereq.url !~ "^/wiki/Special:" && beresp.http.Vary) {
           set beresp.http.Vary = regsub(beresp.http.Vary, "^Accept-Language,? ?", "");
           set beresp.http.Vary = regsub(beresp.http.Vary, ", ?Accept-Language$", "");
           set beresp.http.Vary = regsuball(beresp.http.Vary, ", ?Accept-Language, ?", ", ");
@@ -198,7 +198,7 @@ sub vcl_backend_response {
         # Keep normal wiki pages around much longer at the proxy layer.
         # Freshness still comes from explicit purges on edit, so a longer TTL
         # helps hot landing/report pages stay warm instead of going cold again.
-        if (bereq.url ~ "^/wiki/" && bereq.url !~ "^/wiki/Special:" && beresp.ttl < 168h) {
+        if ((bereq.url == "/" || bereq.url ~ "^/wiki/") && bereq.url !~ "^/wiki/Special:" && beresp.ttl < 168h) {
           set beresp.ttl = 168h;
         }
 
@@ -226,7 +226,7 @@ sub vcl_deliver {
             }
         }
 
-        if (req.url ~ "^/wiki/" && req.url !~ "^/wiki/Special:" && resp.http.Vary) {
+        if ((req.url == "/" || req.url ~ "^/wiki/") && req.url !~ "^/wiki/Special:" && resp.http.Vary) {
             set resp.http.Vary = regsub(resp.http.Vary, "^Accept-Language,? ?", "");
             set resp.http.Vary = regsub(resp.http.Vary, ", ?Accept-Language$", "");
             set resp.http.Vary = regsuball(resp.http.Vary, ", ?Accept-Language, ?", ", ");
