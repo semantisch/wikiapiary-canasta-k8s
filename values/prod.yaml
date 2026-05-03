@@ -161,6 +161,7 @@ ingress:
     bunkerweb.io/USE_WHITELIST: "no"
   edge:
     enabled: true
+    nameOverride: wikiapiary-edge
     namespace: bunkerweb
     className: nginx
     backendServiceName: bunkerweb-external

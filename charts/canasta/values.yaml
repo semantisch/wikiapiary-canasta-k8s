@@ -175,6 +175,7 @@ ingress:
   annotations: {}
   edge:
     enabled: false
+    nameOverride: ""
     namespace: bunkerweb
     className: nginx
     backendServiceName: bunkerweb-external

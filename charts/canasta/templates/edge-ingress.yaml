@@ -8,7 +8,7 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ $fullname }}-edge
+  name: {{ .Values.ingress.edge.nameOverride | default (printf "%s-edge" $fullname) }}
   namespace: {{ .Values.ingress.edge.namespace }}
   labels:
     {{- include "canasta.labels" . | nindent 4 }}
