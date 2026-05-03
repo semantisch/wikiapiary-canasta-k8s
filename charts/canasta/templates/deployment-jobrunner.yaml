@@ -21,6 +21,7 @@ spec:
       annotations:
         checksum/web-config: {{ .Values.configData.web | toJson | sha256sum }}
         checksum/env-config: {{ .Values.configData.env | default dict | toJson | sha256sum }}
+        checksum/php-sessions: {{ toJson .Values.phpSessions | sha256sum }}
     spec:
       {{- $nodeSelector := .Values.jobrunner.nodeSelector | default .Values.nodeSelector }}
       {{- with $nodeSelector }}
@@ -117,6 +118,11 @@ spec:
               mountPath: /mediawiki/cache
             - name: cache-warm
               mountPath: /warm-cache
+            {{- if .Values.phpSessions.enabled }}
+            - name: php-sessions
+              mountPath: /etc/php/8.2/cli/conf.d/99-wikiapiary-sessions.ini
+              subPath: 99-wikiapiary-sessions.ini
+            {{- end }}
           {{- with .Values.jobrunner.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
@@ -136,4 +142,9 @@ spec:
         - name: cache-warm
           persistentVolumeClaim:
             claimName: {{ include "canasta.fullname" . }}-cache-warm
+        {{- if .Values.phpSessions.enabled }}
+        - name: php-sessions
+          configMap:
+            name: {{ include "canasta.fullname" . }}-php-sessions
+        {{- end }}
 {{- end }}

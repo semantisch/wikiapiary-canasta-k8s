@@ -70,6 +70,13 @@ sub vcl_recv {
         return (pass);
     }
 
+    # Preserve request cookies for non-idempotent and user-action flows such as
+    # login and account forms. These must reach MediaWiki unchanged so the
+    # submitted token matches the session that generated the form.
+    if (req.method != "GET" && req.method != "HEAD") {
+        return (pass);
+    } /* We only cache GET and HEAD */
+
     # MediaWiki may set anonymous session cookies for public page views.
     # Those should not explode the shared cache or force a pass. Only keep
     # cookies that indicate an authenticated/user-specific session.
@@ -82,11 +89,6 @@ sub vcl_recv {
 
         unset req.http.Cookie;
     }
-
-    # Pass anything other than GET and HEAD directly.
-    if (req.method != "GET" && req.method != "HEAD") {
-        return (pass);
-    } /* We only deal with GET and HEAD by default */
 
     # Anonymous wiki pages should not explode into many cache variants based on
     # browser language preferences. Keep translated subpages keyed by URL, and

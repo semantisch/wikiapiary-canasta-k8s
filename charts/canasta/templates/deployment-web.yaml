@@ -24,6 +24,7 @@ spec:
         checksum/web-config: {{ .Values.configData.web | toJson | sha256sum }}
         checksum/env-config: {{ .Values.configData.env | default dict | toJson | sha256sum }}
         checksum/extension-overrides: {{ ternary (printf "%s%s" (.Files.Get "files/wikiapiary/Stats.php") (.Files.Get "files/wikiapiary/stats-snapshot.json") | sha256sum) "" .Values.extensionOverrides.enabled }}
+        checksum/php-sessions: {{ toJson .Values.phpSessions | sha256sum }}
     spec:
       {{- $nodeSelector := .Values.web.nodeSelector | default .Values.nodeSelector }}
       {{- with $nodeSelector }}
@@ -193,6 +194,14 @@ spec:
               mountPath: /warm-cache
             - name: override-bin
               mountPath: /override-bin
+            {{- if .Values.phpSessions.enabled }}
+            - name: php-sessions
+              mountPath: /etc/php/8.2/apache2/conf.d/99-wikiapiary-sessions.ini
+              subPath: 99-wikiapiary-sessions.ini
+            - name: php-sessions
+              mountPath: /etc/php/8.2/cli/conf.d/99-wikiapiary-sessions.ini
+              subPath: 99-wikiapiary-sessions.ini
+            {{- end }}
           {{- with .Values.web.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
@@ -247,6 +256,11 @@ spec:
         - name: cache-warm
           persistentVolumeClaim:
             claimName: {{ include "canasta.fullname" . }}-cache-warm
+        {{- if .Values.phpSessions.enabled }}
+        - name: php-sessions
+          configMap:
+            name: {{ include "canasta.fullname" . }}-php-sessions
+        {{- end }}
       hostAliases:
         - ip: "172.17.0.1"
           hostnames:

@@ -74,6 +74,14 @@ redis:
       cpu: 250m
       memory: 512Mi
 
+# PHP session backend
+phpSessions:
+  enabled: false
+  redisHost: redis
+  redisPort: 6379
+  redisDatabase: 10
+  redisPrefix: "PHPREDIS_SESSION:"
+
 # Cache warmer
 cacheWarmer:
   enabled: false
