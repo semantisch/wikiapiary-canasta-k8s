@@ -82,7 +82,13 @@ data:
     }
 
     function eligible_warm_path($url) {
-        if (!is_string($url) || strpos($url, '/wiki/') !== 0) {
+        if (!is_string($url) || $url === '') {
+            return false;
+        }
+        if ($url === '/') {
+            return true;
+        }
+        if (strpos($url, '/wiki/') !== 0) {
             return false;
         }
         if (preg_match('#^/wiki/Special:#', $url)) {
@@ -625,7 +631,7 @@ data:
         'largestOffset' => $largestOffset
     ]);
 
-    $tier1Pages = ['/wiki/Main_Page', '/wiki/Websites', '/wiki/Websites/WikiTeam'];
+    $tier1Pages = ['/', '/wiki/Main_Page', '/wiki/Websites', '/wiki/Websites/WikiTeam'];
     $tier1Pages = array_values(array_unique(array_merge($tier1Pages, $translationPages)));
     $tier2Pages = array_values(array_unique(array_merge($changedPages, $hotPages)));
     $tier3Pages = array_values(array_unique(array_merge($semanticPages, $seedPages, $largestBatch)));
@@ -743,7 +749,13 @@ data:
     }
 
     function eligible_warm_path($url) {
-        if (!is_string($url) || strpos($url, '/wiki/') !== 0) {
+        if (!is_string($url) || $url === '') {
+            return false;
+        }
+        if ($url === '/') {
+            return true;
+        }
+        if (strpos($url, '/wiki/') !== 0) {
             return false;
         }
         if (preg_match('#^/wiki/Special:#', $url)) {
@@ -939,7 +951,7 @@ data:
     function tier1_core_pages($baseDir) {
         $translationPages = load_json($baseDir . '/translation-pages.json', ['pages' => []])['pages'] ?? [];
         $pages = array_merge(
-            ['/wiki/Main_Page', '/wiki/Websites', '/wiki/Websites/WikiTeam'],
+            ['/', '/wiki/Main_Page', '/wiki/Websites', '/wiki/Websites/WikiTeam'],
             $translationPages
         );
         $unique = [];
