@@ -9,11 +9,15 @@ metadata:
     app.kubernetes.io/component: cache-warmer
 spec:
   schedule: {{ .Values.cacheWarmer.priorityWarmSchedule | quote }}
+  startingDeadlineSeconds: {{ .Values.cacheWarmer.startingDeadlineSeconds }}
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
-  failedJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 1
   jobTemplate:
     spec:
+      backoffLimit: {{ .Values.cacheWarmer.backoffLimit }}
+      activeDeadlineSeconds: {{ .Values.cacheWarmer.priorityActiveDeadlineSeconds }}
+      ttlSecondsAfterFinished: {{ .Values.cacheWarmer.ttlSecondsAfterFinished }}
       template:
         metadata:
           labels:
@@ -77,11 +81,15 @@ metadata:
     app.kubernetes.io/component: cache-warmer
 spec:
   schedule: {{ .Values.cacheWarmer.warmSchedule | quote }}
+  startingDeadlineSeconds: {{ .Values.cacheWarmer.startingDeadlineSeconds }}
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
-  failedJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 1
   jobTemplate:
     spec:
+      backoffLimit: {{ .Values.cacheWarmer.backoffLimit }}
+      activeDeadlineSeconds: {{ .Values.cacheWarmer.warmActiveDeadlineSeconds }}
+      ttlSecondsAfterFinished: {{ .Values.cacheWarmer.ttlSecondsAfterFinished }}
       template:
         metadata:
           labels:

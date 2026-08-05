@@ -93,6 +93,12 @@ cacheWarmer:
   discoverSchedule: "*/20 * * * *"
   priorityWarmSchedule: "*/1 * * * *"
   warmSchedule: "*/5 * * * *"
+  startingDeadlineSeconds: 120
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 600
+  discoverActiveDeadlineSeconds: 300
+  priorityActiveDeadlineSeconds: 300
+  warmActiveDeadlineSeconds: 600
   accessLogTail: 4000
   biggestWikisLimit: 100
   largestBatchSize: 20

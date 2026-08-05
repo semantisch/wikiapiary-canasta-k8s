@@ -9,11 +9,15 @@ metadata:
     app.kubernetes.io/component: cache-warmer
 spec:
   schedule: {{ .Values.cacheWarmer.discoverSchedule | quote }}
+  startingDeadlineSeconds: {{ .Values.cacheWarmer.startingDeadlineSeconds }}
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
-  failedJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 1
   jobTemplate:
     spec:
+      backoffLimit: {{ .Values.cacheWarmer.backoffLimit }}
+      activeDeadlineSeconds: {{ .Values.cacheWarmer.discoverActiveDeadlineSeconds }}
+      ttlSecondsAfterFinished: {{ .Values.cacheWarmer.ttlSecondsAfterFinished }}
       template:
         metadata:
           labels:

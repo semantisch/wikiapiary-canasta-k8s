@@ -114,36 +114,6 @@ data:
         return true;
     }
 
-    function is_priority_seed_path($url) {
-        if (!eligible_warm_path($url) || $url === '/') {
-            return false;
-        }
-        if (strpos($url, '/wiki/') !== 0) {
-            return false;
-        }
-        $title = substr($url, strlen('/wiki/'));
-        $slashCount = substr_count($title, '/');
-        if ($slashCount === 0) {
-            return true;
-        }
-        return in_array($url, [
-            '/wiki/Websites/Birthday_today',
-            '/wiki/Websites/Oldest',
-            '/wiki/Websites/Youngest',
-            '/wiki/Host:Hosts/By_hostname',
-            '/wiki/Host:Hosts/CDN',
-            '/wiki/Host:Hosts/Commercial',
-            '/wiki/Host:Hosts/Empty',
-            '/wiki/Host:Hosts/Government',
-            '/wiki/Host:Hosts/Non-profit',
-            '/wiki/Host:Hosts/Registry',
-            '/wiki/Host:Hosts/University',
-            '/wiki/Farm:Farms/Not_collecting',
-            '/wiki/Extension:Extensions/Merged_and_Bundled',
-            '/wiki/Extension:Extensions/Standalone_and_Farm',
-        ], true);
-    }
-
     function fetch_text($url, $timeout, array $extraHeaders = []) {
         $ctx = stream_context_create([
             'http' => [
@@ -807,6 +777,36 @@ data:
         return true;
     }
 
+    function is_priority_seed_path($url) {
+        if (!eligible_warm_path($url) || $url === '/') {
+            return false;
+        }
+        if (strpos($url, '/wiki/') !== 0) {
+            return false;
+        }
+        $title = substr($url, strlen('/wiki/'));
+        $slashCount = substr_count($title, '/');
+        if ($slashCount === 0) {
+            return true;
+        }
+        return in_array($url, [
+            '/wiki/Websites/Birthday_today',
+            '/wiki/Websites/Oldest',
+            '/wiki/Websites/Youngest',
+            '/wiki/Host:Hosts/By_hostname',
+            '/wiki/Host:Hosts/CDN',
+            '/wiki/Host:Hosts/Commercial',
+            '/wiki/Host:Hosts/Empty',
+            '/wiki/Host:Hosts/Government',
+            '/wiki/Host:Hosts/Non-profit',
+            '/wiki/Host:Hosts/Registry',
+            '/wiki/Host:Hosts/University',
+            '/wiki/Farm:Farms/Not_collecting',
+            '/wiki/Extension:Extensions/Merged_and_Bundled',
+            '/wiki/Extension:Extensions/Standalone_and_Farm',
+        ], true);
+    }
+
     function parse_response_headers($headers) {
         $parsed = [];
         foreach ($headers as $header) {
@@ -822,44 +822,64 @@ data:
     }
 
     function request_url($fullUrl, $timeout, array $extraHeaders = []) {
-        $ctx = stream_context_create([
-            'http' => [
-                'method' => 'GET',
-                'timeout' => $timeout,
-                'ignore_errors' => true,
-                'header' => implode("\r\n", array_merge([
-                    'User-Agent: WikiApiaryPriorityWarmer/1.0',
-                    'Accept: text/html,application/xhtml+xml',
-                    'Accept-Language: en'
-                ], $extraHeaders))
-            ],
-            'ssl' => [
-                'verify_peer' => false,
-                'verify_peer_name' => false
-            ]
-        ]);
-        $start = microtime(true);
-        $body = @file_get_contents($fullUrl, false, $ctx);
-        $elapsed = microtime(true) - $start;
-        $status = 0;
-        if (isset($http_response_header[0]) && preg_match('#\s(\d{3})\s#', $http_response_header[0], $m)) {
-            $status = (int)$m[1];
-        }
-        $headers = parse_response_headers($http_response_header ?? []);
-        $age = null;
-        if (!empty($headers['age'][0]) && ctype_digit((string)$headers['age'][0])) {
-            $age = (int)$headers['age'][0];
-        }
-        return [
+        $attempts = 3;
+        $last = [
             'url' => $fullUrl,
-            'status' => $status,
-            'ok' => $body !== false && $status >= 200 && $status < 400,
-            'seconds' => round($elapsed, 3),
-            'age' => $age,
-            'via' => $headers['via'] ?? [],
-            'cacheControl' => $headers['cache-control'][0] ?? null,
-            'cache' => $headers['x-wikiapiary-cache'][0] ?? null,
+            'status' => 0,
+            'ok' => false,
+            'seconds' => null,
+            'age' => null,
+            'via' => [],
+            'cacheControl' => null,
+            'cache' => null,
         ];
+        for ($attempt = 0; $attempt < $attempts; $attempt++) {
+            $ctx = stream_context_create([
+                'http' => [
+                    'method' => 'GET',
+                    'timeout' => $timeout,
+                    'ignore_errors' => true,
+                    'header' => implode("\r\n", array_merge([
+                        'User-Agent: WikiApiaryPriorityWarmer/1.0',
+                        'Accept: text/html,application/xhtml+xml',
+                        'Accept-Language: en'
+                    ], $extraHeaders))
+                ],
+                'ssl' => [
+                    'verify_peer' => false,
+                    'verify_peer_name' => false
+                ]
+            ]);
+            $start = microtime(true);
+            $body = @file_get_contents($fullUrl, false, $ctx);
+            $elapsed = microtime(true) - $start;
+            $status = 0;
+            if (isset($http_response_header[0]) && preg_match('#\s(\d{3})\s#', $http_response_header[0], $m)) {
+                $status = (int)$m[1];
+            }
+            $headers = parse_response_headers($http_response_header ?? []);
+            $age = null;
+            if (!empty($headers['age'][0]) && ctype_digit((string)$headers['age'][0])) {
+                $age = (int)$headers['age'][0];
+            }
+            $last = [
+                'url' => $fullUrl,
+                'status' => $status,
+                'ok' => $body !== false && $status >= 200 && $status < 400,
+                'seconds' => round($elapsed, 3),
+                'age' => $age,
+                'via' => $headers['via'] ?? [],
+                'cacheControl' => $headers['cache-control'][0] ?? null,
+                'cache' => $headers['x-wikiapiary-cache'][0] ?? null,
+            ];
+            if (!empty($last['ok'])) {
+                return $last;
+            }
+            if ($attempt < ($attempts - 1)) {
+                usleep(200000);
+            }
+        }
+        return $last;
     }
 
     function expand_base_targets($baseUrl, $fanoutHost) {
@@ -960,7 +980,12 @@ data:
             $ok++;
         }
     }
-    echo "priority-warmed=" . count($results) . " ok=" . $ok . PHP_EOL;
+    $failed = count($results) - $ok;
+    echo "priority-warmed=" . count($results) . " ok=" . $ok . " failed=" . $failed . PHP_EOL;
+    if ($failed > 0) {
+        fwrite(STDERR, "Priority cache warming failed for {$failed} target(s).\n");
+        exit(1);
+    }
   worker.php: |
     <?php
     error_reporting(E_ALL);

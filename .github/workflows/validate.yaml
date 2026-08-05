@@ -17,6 +17,14 @@ jobs:
         with:
           version: v3.20.0
 
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+
+      - name: Install cache validation dependencies
+        run: python3 -m pip install "PyYAML>=6.0.2,<7"
+
       - name: Lint chart
         run: helm lint charts/canasta -f values/prod.yaml
 
@@ -25,3 +33,6 @@ jobs:
 
       - name: Verify rendered output is non-empty
         run: test -s /tmp/wikiapiary-rendered.yaml
+
+      - name: Validate cache-warmer scripts
+        run: python3 scripts/validate-cache-warmer.py /tmp/wikiapiary-rendered.yaml
