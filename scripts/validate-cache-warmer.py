@@ -21,6 +21,9 @@ class CacheBackendHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         query = parse_qs(parsed.query)
         content_type = "text/html; charset=UTF-8"
+        cache_control = "public, max-age=3600"
+        cache_status = "HIT"
+        cache_age: str | None = "42"
 
         if parsed.path == "/w/api.php":
             content_type = "application/json"
@@ -63,11 +66,17 @@ class CacheBackendHandler(BaseHTTPRequestHandler):
                 b"</div></html>"
             )
 
+        if parsed.path == "/wiki/Uncacheable":
+            cache_control = "no-cache, no-store, max-age=0, must-revalidate"
+            cache_status = "MISS"
+            cache_age = None
+
         self.send_response(200)
         self.send_header("Content-Type", content_type)
-        self.send_header("Cache-Control", "public, max-age=3600")
-        self.send_header("X-WikiApiary-Cache", "HIT")
-        self.send_header("Age", "42")
+        self.send_header("Cache-Control", cache_control)
+        self.send_header("X-WikiApiary-Cache", cache_status)
+        if cache_age is not None:
+            self.send_header("Age", cache_age)
         self.end_headers()
         self.wfile.write(payload)
 
@@ -207,6 +216,7 @@ def validate(rendered_path: Path) -> None:
                         "/wiki/Websites/Youngest",
                         "/wiki/Websites/WikiTeam/Deep",
                         "/wiki/Template:Hidden",
+                        "/wiki/Uncacheable",
                     ]
                 },
             )
@@ -223,6 +233,18 @@ def validate(rendered_path: Path) -> None:
             for rejected in ["/wiki/Websites/WikiTeam/Deep", "/wiki/Template:Hidden"]:
                 if rejected in priority_seeds:
                     raise RuntimeError(f"ineligible priority seed entered report: {rejected}")
+            skipped = [
+                result.get("path")
+                for result in priority_report.get("results", [])
+                if result.get("skippedUncacheable")
+            ]
+            if "/wiki/Uncacheable" not in skipped:
+                raise RuntimeError("no-store page was not classified as uncacheable")
+            priority_uncacheable = json.loads(
+                (cache_dir / "priority-uncacheable-pages.json").read_text(encoding="utf-8")
+            )
+            if "/wiki/Uncacheable" not in priority_uncacheable.get("pages", {}):
+                raise RuntimeError("no-store page was not persisted in priority skip list")
         finally:
             server.shutdown()
             server.server_close()

@@ -53,6 +53,8 @@ spec:
                   value: "{{ .Values.cacheWarmer.priorityPagesLimit }}"
                 - name: REQUEST_TIMEOUT_SECONDS
                   value: "{{ .Values.cacheWarmer.requestTimeoutSeconds }}"
+                - name: UNCACHEABLE_TTL_SECONDS
+                  value: "{{ .Values.cacheWarmer.uncacheableTtlSeconds }}"
               volumeMounts:
                 - name: scripts
                   mountPath: /scripts

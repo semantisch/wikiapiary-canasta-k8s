@@ -725,7 +725,9 @@ data:
     $priorityHotPagesLimit = max(0, (int)(getenv('PRIORITY_HOT_PAGES_LIMIT') ?: 20));
     $priorityPagesLimit = max(10, (int)(getenv('PRIORITY_PAGES_LIMIT') ?: 80));
     $requestTimeout = max(3, (int)(getenv('REQUEST_TIMEOUT_SECONDS') ?: 15));
+    $uncacheableTtl = max(300, (int)(getenv('UNCACHEABLE_TTL_SECONDS') ?: 86400));
     $uncacheableFile = $baseDir . '/uncacheable-pages.json';
+    $priorityUncacheableFile = $baseDir . '/priority-uncacheable-pages.json';
     $seedFile = $baseDir . '/seed-pages.json';
     $translationFile = $baseDir . '/translation-pages.json';
     $hotFile = $baseDir . '/hot-pages.json';
@@ -905,14 +907,25 @@ data:
     $seedPages = load_json($seedFile, ['pages' => []])['pages'] ?? [];
     $translationPages = load_json($translationFile, ['pages' => []])['pages'] ?? [];
     $hotPages = load_json($hotFile, ['pages' => []])['pages'] ?? [];
-    $uncacheableMap = load_json($uncacheableFile, ['pages' => []])['pages'] ?? [];
+    $globalUncacheableMap = load_json($uncacheableFile, ['pages' => []])['pages'] ?? [];
+    $priorityUncacheableMap = load_json($priorityUncacheableFile, ['pages' => []])['pages'] ?? [];
 
     $now = time();
-    foreach ($uncacheableMap as $path => $until) {
+    foreach ($globalUncacheableMap as $path => $until) {
         if (!is_numeric($until) || (int)$until <= $now) {
-            unset($uncacheableMap[$path]);
+            unset($globalUncacheableMap[$path]);
+        } else {
+            $globalUncacheableMap[$path] = (int)$until;
         }
     }
+    foreach ($priorityUncacheableMap as $path => $until) {
+        if (!is_numeric($until) || (int)$until <= $now) {
+            unset($priorityUncacheableMap[$path]);
+        } else {
+            $priorityUncacheableMap[$path] = (int)$until;
+        }
+    }
+    $uncacheableMap = array_replace($globalUncacheableMap, $priorityUncacheableMap);
 
     $tier1 = ['/', '/wiki/Main_Page', '/wiki/Websites', '/wiki/Websites/WikiTeam'];
     $ordered = [];
@@ -940,6 +953,7 @@ data:
     foreach ($targets as $path) {
         $targetResults = [];
         $allOk = true;
+        $uncacheableResponses = 0;
         foreach ($warmTargets as $base) {
             $refresh = request_url($base . $path, $requestTimeout, $warmHeaders);
             if (!empty($refresh['ok']) && (($refresh['cache'] ?? '') !== 'HIT' || ($refresh['age'] ?? null) === null)) {
@@ -950,9 +964,21 @@ data:
                 }
             }
             $targetResults[] = array_merge(['base' => $base], $refresh);
-            if (empty($refresh['ok'])) {
+            $cacheControl = strtolower((string)($refresh['cacheControl'] ?? ''));
+            $isUncacheableResponse = ($refresh['status'] ?? 0) === 404
+                || strpos($cacheControl, 'no-store') !== false
+                || strpos($cacheControl, 'private') !== false;
+            if ($isUncacheableResponse) {
+                $uncacheableResponses++;
+            } elseif (empty($refresh['ok']) || ($refresh['cache'] ?? '') !== 'HIT' || ($refresh['age'] ?? null) === null) {
                 $allOk = false;
             }
+        }
+        $skippedUncacheable = count($warmTargets) > 0 && $uncacheableResponses === count($warmTargets);
+        if ($skippedUncacheable) {
+            $priorityUncacheableMap[$path] = time() + $uncacheableTtl;
+        } elseif ($uncacheableResponses > 0) {
+            $allOk = false;
         }
         $primary = $targetResults[0] ?? ['status' => 0, 'cacheControl' => null, 'seconds' => null, 'age' => null];
         $results[] = [
@@ -960,12 +986,19 @@ data:
             'path' => $path,
             'refresh' => $primary,
             'targetResults' => $targetResults,
-            'ok' => $allOk,
+            'cacheable' => !$skippedUncacheable,
+            'skippedUncacheable' => $skippedUncacheable,
+            'ok' => $allOk || $skippedUncacheable,
             'seconds' => $primary['seconds'] ?? null,
             'ageAfter' => $primary['age'] ?? null
         ];
         usleep(100000);
     }
+
+    atomic_write_json($priorityUncacheableFile, [
+        'generatedAt' => gmdate('c'),
+        'pages' => $priorityUncacheableMap
+    ]);
 
     atomic_write_json($reportFile, [
         'generatedAt' => gmdate('c'),
@@ -975,13 +1008,20 @@ data:
     ]);
 
     $ok = 0;
+    $cached = 0;
+    $skipped = 0;
     foreach ($results as $result) {
         if (!empty($result['ok'])) {
             $ok++;
         }
+        if (!empty($result['skippedUncacheable'])) {
+            $skipped++;
+        } elseif (!empty($result['ok'])) {
+            $cached++;
+        }
     }
     $failed = count($results) - $ok;
-    echo "priority-warmed=" . count($results) . " ok=" . $ok . " failed=" . $failed . PHP_EOL;
+    echo "priority-processed=" . count($results) . " cached=" . $cached . " skipped-uncacheable=" . $skipped . " failed=" . $failed . PHP_EOL;
     if ($failed > 0) {
         fwrite(STDERR, "Priority cache warming failed for {$failed} target(s).\n");
         exit(1);
