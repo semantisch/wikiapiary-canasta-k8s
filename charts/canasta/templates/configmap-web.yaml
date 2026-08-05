@@ -10,8 +10,9 @@ metadata:
 data:
   {{- $primaryHost := include "canasta.primaryHost" . }}
   {{- $siteServer := include "canasta.siteServer" . }}
+  {{- $siteHostsCsv := include "canasta.hostsCsv" . }}
   {{- range $key, $value := .Values.configData.web }}
   {{ $key }}: |
-    {{- $value | replace "__PRIMARY_HOST__" $primaryHost | replace "__SITE_SERVER__" $siteServer | nindent 4 }}
+    {{- $value | replace "__PRIMARY_HOST__" $primaryHost | replace "__SITE_SERVER__" $siteServer | replace "__SITE_HOSTS_CSV__" $siteHostsCsv | nindent 4 }}
   {{- end }}
 {{- end }}

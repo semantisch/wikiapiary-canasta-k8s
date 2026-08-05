@@ -1,91 +1,66 @@
-# Changing the WikiApiary hostname
+# Change the WikiApiary hostname
 
-The production chart is designed so a canonical-host cutover changes exactly
-one Git value: `site.primaryHost` in [`values/prod.yaml`](../../values/prod.yaml).
-Do not edit ingress rules, TLS lists, MediaWiki configuration, Caddy, job
-runners, cache automation, Argo CD, workflows, or README links in the cutover
-pull request.
+The hostname is controlled in one file: [`values/prod.yaml`](../../values/prod.yaml).
 
-## How hostname derivation works
+## Switch the main hostname to `wikiapiary.com`
 
-| Value | Behavior |
-| --- | --- |
-| `site.primaryHost` | Canonical application origin; always routed and automatically included on the edge certificate |
-| `site.additionalHosts` | Additional route-only aliases that do not automatically expand the public certificate |
-| `ingress.edge.tlsHosts` | Retained certificate aliases; these are also routed through MediaWiki and Caddy |
+1. Point the DNS records for `wikiapiary.com` at the same load balancer as
+   `wikiapiary.dobriy.ai`. At the time of writing these are:
 
-The production values intentionally keep `wikiapiary.dobriy.ai` in
-`ingress.edge.tlsHosts`. It is redundant while that name is primary, but it
-preserves the old hostname, route, and certificate SAN automatically after
-`wikiapiary.com` becomes primary.
+   - A: `138.199.129.254`
+   - AAAA: `2a01:4f8:c01e:12e5::1`
 
-CI renders a synthetic `wikiapiary.com` cutover by overriding only
-`site.primaryHost`. It verifies the resulting MediaWiki identity, Caddy
-listeners and upstream host, internal and edge ingress rules, certificate SANs,
-job runners, cache automation, and pod checksums.
+   Check that those addresses are still current before changing DNS, then wait
+   until public DNS resolvers return them.
 
-## Before merging the cutover
+2. Change exactly one line in `values/prod.yaml`:
 
-DNS is the only required change outside Git.
+   ```diff
+    site:
+   -  primaryHost: wikiapiary.dobriy.ai
+   +  primaryHost: wikiapiary.com
+   ```
 
-1. Prepare a pull request containing the one-line values change shown below and
-   wait for CI to pass.
-2. Lower the `wikiapiary.com` DNS TTL early enough for existing records to expire.
-3. Immediately before merging, point the `wikiapiary.com` A and, if used, AAAA
-   records at the production edge load balancer.
-4. Confirm public resolvers return only the intended load-balancer addresses.
-5. Merge the prepared pull request. Do not merge while the hostname still points
-   at another service: cert-manager must be able to complete the ACME challenge
-   through this cluster.
+   Do not change Caddy, MediaWiki, ingress rules, cache settings,
+   `site.additionalHosts`, or `ingress.edge.tlsHosts`.
 
-The new certificate is requested as part of reconciliation. A short issuance
-interval is therefore expected; the production observation workflow retries for
-up to 15 minutes and fails visibly if HTTPS, MediaWiki identity, or cache behavior
-does not converge.
+3. Open a pull request, wait for the `Validate / Helm and policy` check to pass,
+   and merge it into `main`.
 
-## The complete Git change
+4. Wait for the `Production / Observe GitOps deployment` workflow to pass.
+   This confirms HTTPS, MediaWiki, and the cache on every configured hostname.
 
-Change only this line in `values/prod.yaml`:
+5. Verify publicly:
 
-```diff
- site:
--  primaryHost: wikiapiary.dobriy.ai
-+  primaryHost: wikiapiary.com
+   ```bash
+   curl --fail --silent --show-error --head https://wikiapiary.com/
+   curl --fail --silent --show-error \
+     'https://wikiapiary.com/w/api.php?action=query&meta=siteinfo&format=json'
+   curl --fail --silent --show-error --head https://wikiapiary.dobriy.ai/
+   ```
+
+That is the complete switch. The chart automatically updates the routes,
+certificate, application hostname, pod rollouts, and cache warmers. The old
+hostname stays available because it is retained in `ingress.edge.tlsHosts`.
+
+## Add another mirror instead
+
+Point the mirror's A and AAAA records at the same load balancer, then add only
+the hostname under `site.additionalHosts`:
+
+```yaml
+site:
+  additionalHosts:
+    - dev.wikiapiary.com
+    - mirror.example.org
 ```
 
-Do not remove `wikiapiary.dobriy.ai` from `ingress.edge.tlsHosts`: that entry is
-what retains the previous hostname as a certificate-covered alias.
+After the pull request is merged, the mirror receives its own certificate,
+serves pages on its own hostname without redirecting, and gets its own warmed
+cache entries.
 
-Run [local validation](../../README.md#local-validation), open the pull request,
-and confirm `Validate / Helm and policy` succeeds. After merge, Argo CD applies
-the new primary identity and cert-manager updates the existing edge certificate
-to cover both the new primary hostname and retained TLS aliases.
+## Roll back
 
-## Post-cutover checks
-
-- Open the homepage and a representative article on `wikiapiary.com`.
-- Query `/w/api.php?action=query&meta=siteinfo&format=json` and confirm the
-  reported server is `https://wikiapiary.com`.
-- Confirm `/wiki/Special:ApiSandbox` is reachable.
-- Confirm an anonymous cacheable page produces a Varnish cache HIT.
-- Confirm `wikiapiary.dobriy.ai` remains reachable as an alias.
-- Check that web, Caddy, job-runner, and cache-automation workloads are healthy.
-- Keep the old hostname available through a monitoring period so bots, crawlers,
-  bookmarks, and integrations can migrate.
-
-## Rollback
-
-Rollback is also a one-line change:
-
-```diff
- site:
--  primaryHost: wikiapiary.com
-+  primaryHost: wikiapiary.dobriy.ai
-```
-
-Merge the rollback pull request and retain the new DNS record until production
-validation passes. The configured retained TLS alias ensures the old hostname
-is already present on the edge certificate.
-
-Redirect policy should be added only in a later reviewed change after traffic
-and crawler behavior are understood.
+Change `site.primaryHost` back to `wikiapiary.dobriy.ai`, open and merge the
+rollback pull request, and wait for the production workflow to pass. Do not
+remove either DNS record during rollback.

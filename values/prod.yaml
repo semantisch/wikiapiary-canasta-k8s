@@ -46,9 +46,19 @@ caddy:
 varnish:
   enabled: true
   replicaCount: 2
+  # The image default is only 100M; production uses a 40x larger cache so the
+  # hot WikiApiary working set survives between warming cycles.
+  storageSize: 4G
   spreadAcrossNodes: true
   nodeSelector:
     wikiapiary-role: worker
+  resources:
+    requests:
+      cpu: 100m
+      memory: 4Gi
+    limits:
+      cpu: 500m
+      memory: 5Gi
 
 redis:
   enabled: true
@@ -176,6 +186,9 @@ ingress:
     bunkerweb.io/USE_BAD_BEHAVIOR: "no"
     bunkerweb.io/USE_BLACKLIST: "no"
     bunkerweb.io/USE_DNSBL: "no"
+    # The upstream load balancer currently presents one shared source IP. A
+    # per-IP connection cap would therefore throttle unrelated visitors.
+    bunkerweb.io/USE_LIMIT_CONN: "no"
     bunkerweb.io/USE_LIMIT_REQ: "no"
     bunkerweb.io/USE_MODSECURITY: "yes"
     bunkerweb.io/USE_MODSECURITY_CRS: "no"
@@ -292,7 +305,21 @@ configData:
       $wgUsePathInfo = true;
       $wgScriptPath = "/w";
       $wgArticlePath = "/wiki/$1";
-      $wgServer = getenv( 'MW_SITE_SERVER' ) ?: '__SITE_SERVER__';
+      $wikiApiaryCanonicalServer = getenv( 'MW_SITE_SERVER' ) ?: '__SITE_SERVER__';
+      $wikiApiaryAllowedHosts = array_values( array_filter( array_map(
+          'trim',
+          explode( ',', getenv( 'MW_SITE_HOSTS' ) ?: '__SITE_HOSTS_CSV__' )
+      ) ) );
+      $wikiApiaryRequestHost = strtolower( preg_replace(
+          '/:\d+$/',
+          '',
+          $_SERVER['HTTP_HOST'] ?? ''
+      ) ?? '' );
+      $wikiApiaryScheme = parse_url( $wikiApiaryCanonicalServer, PHP_URL_SCHEME ) ?: 'https';
+      $wgServer = in_array( $wikiApiaryRequestHost, $wikiApiaryAllowedHosts, true )
+          ? $wikiApiaryScheme . '://' . $wikiApiaryRequestHost
+          : $wikiApiaryCanonicalServer;
+      $wgCanonicalServer = $wikiApiaryCanonicalServer;
       $wgLogos = [
           '1x' => "/w/images/wikiapiary/thumb/5/5e/WikiApiary_Bee.png/128px-WikiApiary_Bee.png",
           'icon' => "/w/images/wikiapiary/thumb/5/5e/WikiApiary_Bee.png/128px-WikiApiary_Bee.png",
@@ -814,7 +841,6 @@ configData:
       __CADDY_SITE_ADDRESSES__ {
           import /etc/caddy/Caddyfile.site
           reverse_proxy varnish:80 {
-              header_up Host __PRIMARY_HOST__
               lb_retries 2
               lb_try_duration 5s
               fail_duration 30s

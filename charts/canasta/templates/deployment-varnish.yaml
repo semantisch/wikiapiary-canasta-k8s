@@ -50,6 +50,8 @@ spec:
         - name: varnish
           image: {{ .Values.varnish.image }}
           env:
+            - name: VARNISH_SIZE
+              value: {{ .Values.varnish.storageSize | quote }}
             - name: POD_IP
               valueFrom:
                 fieldRef:

@@ -24,6 +24,8 @@ For a canonical-host change, edit only `site.primaryHost`; do not add literal
 deployment hostnames inside MediaWiki or Caddy configuration blobs. Retained
 TLS aliases belong in `ingress.edge.tlsHosts`, not in a cutover PR. Follow
 [`docs/hostname/README.md`](docs/hostname/README.md) for the migration procedure.
+Independent mirrors belong in `site.additionalHosts`; the chart derives their
+routing, certificates, application allowlist, and cache-warming targets.
 
 ## Secrets and security reports
 

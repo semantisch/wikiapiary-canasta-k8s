@@ -24,15 +24,20 @@ def request(url: str) -> tuple[bytes, Any]:
         return response.read(), response.headers
 
 
-def configured_host(values_path: Path) -> str:
+def configured_hosts(values_path: Path) -> list[str]:
     values = yaml.safe_load(values_path.read_text(encoding="utf-8"))
     host = values.get("site", {}).get("primaryHost")
-    tls_hosts = values.get("ingress", {}).get("edge", {}).get("tlsHosts", [])
+    aliases = values.get("site", {}).get("additionalHosts", [])
+    retained_hosts = values.get("ingress", {}).get("edge", {}).get("tlsHosts", [])
     if not isinstance(host, str) or not host:
         raise RuntimeError("values file has no site.primaryHost")
-    if host not in tls_hosts:
-        raise RuntimeError("site.primaryHost is not covered by ingress.edge.tlsHosts")
-    return host
+    if not isinstance(aliases, list) or not all(isinstance(item, str) for item in aliases):
+        raise RuntimeError("site.additionalHosts must contain hostnames")
+    if not isinstance(retained_hosts, list) or not all(
+        isinstance(item, str) for item in retained_hosts
+    ):
+        raise RuntimeError("ingress.edge.tlsHosts must contain hostnames")
+    return list(dict.fromkeys([host, *aliases, *retained_hosts]))
 
 
 def smoke(host: str) -> str:
@@ -74,12 +79,12 @@ def main() -> None:
     parser.add_argument("--delay", type=int, default=20)
     args = parser.parse_args()
 
-    host = configured_host(args.values)
+    hosts = configured_hosts(args.values)
     last_error: Exception | None = None
     for attempt in range(1, args.attempts + 1):
         try:
-            result = smoke(host)
-            print(f"production smoke passed: {result}")
+            results = [smoke(host) for host in hosts]
+            print("production smoke passed: " + "; ".join(results))
             return
         except (HTTPError, URLError, KeyError, ValueError, RuntimeError) as error:
             last_error = error

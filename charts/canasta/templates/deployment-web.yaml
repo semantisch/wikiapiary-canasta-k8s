@@ -22,6 +22,7 @@ spec:
         app.kubernetes.io/component: web
       annotations:
         checksum/web-config: {{ .Values.configData.web | toJson | sha256sum }}
+        checksum/site-hosts: {{ dict "server" (include "canasta.siteServer" .) "hosts" (include "canasta.hosts" .) | toJson | sha256sum }}
         checksum/env-config: {{ .Values.configData.env | default dict | toJson | sha256sum }}
         {{- if .Values.extensionOverrides.enabled }}
         checksum/extension-overrides: {{ printf "%s%s" (.Files.Get "files/wikiapiary/Stats.php") (.Files.Get "files/wikiapiary/stats-snapshot.json") | sha256sum }}
@@ -141,6 +142,8 @@ spec:
               value: {{ include "canasta.siteServer" . | quote }}
             - name: MW_SITE_FQDN
               value: {{ include "canasta.primaryHost" . | quote }}
+            - name: MW_SITE_HOSTS
+              value: {{ include "canasta.hostsCsv" . | quote }}
             - name: MYSQL_HOST
               value: {{ if .Values.db.hostOverride }}{{ .Values.db.hostOverride | quote }}{{ else if .Values.db.enabled }}"db"{{ else }}"{{ .Values.externalDatabase.host }}"{{ end }}
             - name: MYSQL_PORT

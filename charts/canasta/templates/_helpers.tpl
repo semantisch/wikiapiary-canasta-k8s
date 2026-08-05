@@ -18,14 +18,18 @@ Caddy, cache warming, and ingress-facing application identity.
 {{- end }}
 
 {{/*
-Edge certificate hostnames. The primary host is always covered automatically;
-configured tlsHosts are retained aliases that survive a canonical-host change.
-The JSON encoding lets callers recover a list with fromJsonArray.
+Edge certificate hostnames. The primary host and configured mirrors are always
+covered automatically; configured tlsHosts are retained aliases that survive a
+canonical-host change. The JSON encoding lets callers recover a list with
+fromJsonArray.
 */}}
 {{- define "canasta.edgeTlsHosts" -}}
 {{- $seen := dict -}}
 {{- $hosts := list -}}
 {{- $candidates := list (include "canasta.primaryHost" .) -}}
+{{- range (.Values.site.additionalHosts | default list) -}}
+{{- $candidates = append $candidates . -}}
+{{- end -}}
 {{- range (.Values.ingress.edge.tlsHosts | default list) -}}
 {{- $candidates = append $candidates . -}}
 {{- end -}}
@@ -36,6 +40,14 @@ The JSON encoding lets callers recover a list with fromJsonArray.
 {{- end -}}
 {{- end -}}
 {{- $hosts | toJson -}}
+{{- end }}
+
+{{/*
+Comma-separated accepted hosts for application and cache-warmer environment
+variables. The primary host remains first.
+*/}}
+{{- define "canasta.hostsCsv" -}}
+{{- join "," (include "canasta.hosts" . | fromJsonArray) -}}
 {{- end }}
 
 {{/*

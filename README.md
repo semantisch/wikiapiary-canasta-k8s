@@ -104,8 +104,10 @@ their origin from the canonical hostname rather than depending on an alias.
 `site.primaryHost` in `values/prod.yaml` is the canonical source of truth for
 MediaWiki, Caddy, ingress routing, edge TLS, job runners, Semantic MediaWiki,
 and cache warming. The primary host is automatically added to routing and the
-edge certificate. `ingress.edge.tlsHosts` contains retained TLS aliases, which
-also remain routed after a canonical-host change.
+edge certificate. `site.additionalHosts` contains independent mirrors: each is
+routed, certificate-covered, served without redirecting to the primary host,
+and warmed under its own cache key. `ingress.edge.tlsHosts` contains retained
+TLS aliases, which also remain routed after a canonical-host change.
 
 After DNS is pointed at the edge load balancer, the production cutover requires
 changing only `site.primaryHost`. Follow the complete

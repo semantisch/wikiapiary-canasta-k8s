@@ -422,6 +422,13 @@ data:
     $warmBaseUrl = rtrim(getenv('WARM_BASE_URL') ?: $siteServer, '/');
     $warmFanoutHost = getenv('WARM_FANOUT_HOST') ?: '';
     $warmHostHeader = getenv('WARM_HOST_HEADER') ?: '';
+    $configuredWarmHosts = array_values(array_unique(array_filter(array_map(
+        'trim',
+        explode(',', getenv('WARM_HOST_HEADERS') ?: $warmHostHeader)
+    ))));
+    if (!$configuredWarmHosts) {
+        $configuredWarmHosts = [''];
+    }
     $recentChangesLimit = max(5, (int)(getenv('RECENT_CHANGES_LIMIT') ?: 25));
     $largestBatchSize = max(1, (int)(getenv('LARGEST_BATCH_SIZE') ?: 20));
     $warmPagesLimit = max(5, (int)(getenv('WARM_PAGES_LIMIT') ?: 30));
@@ -594,16 +601,19 @@ data:
         }
     }
 
-    $warmHeaders = [];
-    if ($warmHostHeader !== '') {
-        $warmHeaders[] = 'Host: ' . $warmHostHeader;
+    $warmHeaderSets = [];
+    foreach ($configuredWarmHosts as $host) {
+        $warmHeaderSets[] = [
+            'host' => $host,
+            'headers' => $host === '' ? [] : ['Host: ' . $host],
+        ];
     }
     $warmTargets = expand_base_targets($warmBaseUrl, $warmFanoutHost);
 
     $recentChanges = fetch_json(
         $warmBaseUrl . '/w/api.php?action=query&list=recentchanges&rcnamespace=0&rclimit=' . $recentChangesLimit . '&rcprop=title|ids|timestamp&format=json',
         $requestTimeout,
-        $warmHeaders
+        $warmHeaderSets[0]['headers']
     );
     $changedPages = [];
     foreach (($recentChanges['query']['recentchanges'] ?? []) as $change) {
@@ -650,11 +660,16 @@ data:
     foreach ($targets as $path) {
         $targetResults = [];
         $allOk = true;
-        foreach ($warmTargets as $base) {
-            $refresh = request_url($base . $path, $requestTimeout, 'GET', $warmHeaders);
-            $targetResults[] = array_merge(['base' => $base], $refresh);
-            if (empty($refresh['ok'])) {
-                $allOk = false;
+        foreach ($warmHeaderSets as $headerSet) {
+            foreach ($warmTargets as $base) {
+                $refresh = request_url($base . $path, $requestTimeout, 'GET', $headerSet['headers']);
+                $targetResults[] = array_merge([
+                    'base' => $base,
+                    'host' => $headerSet['host'],
+                ], $refresh);
+                if (empty($refresh['ok'])) {
+                    $allOk = false;
+                }
             }
         }
         $primary = $targetResults[0] ?? ['status' => 0, 'cacheControl' => null, 'seconds' => null, 'age' => null];
@@ -722,6 +737,13 @@ data:
     $warmBaseUrl = rtrim(getenv('WARM_BASE_URL') ?: $siteServer, '/');
     $warmFanoutHost = getenv('WARM_FANOUT_HOST') ?: '';
     $warmHostHeader = getenv('WARM_HOST_HEADER') ?: '';
+    $configuredWarmHosts = array_values(array_unique(array_filter(array_map(
+        'trim',
+        explode(',', getenv('WARM_HOST_HEADERS') ?: $warmHostHeader)
+    ))));
+    if (!$configuredWarmHosts) {
+        $configuredWarmHosts = [''];
+    }
     $priorityHotPagesLimit = max(0, (int)(getenv('PRIORITY_HOT_PAGES_LIMIT') ?: 20));
     $priorityPagesLimit = max(10, (int)(getenv('PRIORITY_PAGES_LIMIT') ?: 80));
     $requestTimeout = max(3, (int)(getenv('REQUEST_TIMEOUT_SECONDS') ?: 15));
@@ -944,9 +966,12 @@ data:
     $targets = array_slice(array_keys($ordered), 0, $priorityPagesLimit);
 
     $warmTargets = expand_base_targets($warmBaseUrl, $warmFanoutHost);
-    $warmHeaders = [];
-    if ($warmHostHeader !== '') {
-        $warmHeaders[] = 'Host: ' . $warmHostHeader;
+    $warmHeaderSets = [];
+    foreach ($configuredWarmHosts as $host) {
+        $warmHeaderSets[] = [
+            'host' => $host,
+            'headers' => $host === '' ? [] : ['Host: ' . $host],
+        ];
     }
 
     $results = [];
@@ -954,27 +979,33 @@ data:
         $targetResults = [];
         $allOk = true;
         $uncacheableResponses = 0;
-        foreach ($warmTargets as $base) {
-            $refresh = request_url($base . $path, $requestTimeout, $warmHeaders);
-            if (!empty($refresh['ok']) && (($refresh['cache'] ?? '') !== 'HIT' || ($refresh['age'] ?? null) === null)) {
-                usleep(100000);
-                $retry = request_url($base . $path, $requestTimeout, $warmHeaders);
-                if (!empty($retry['ok'])) {
-                    $refresh = $retry;
+        foreach ($warmHeaderSets as $headerSet) {
+            foreach ($warmTargets as $base) {
+                $refresh = request_url($base . $path, $requestTimeout, $headerSet['headers']);
+                if (!empty($refresh['ok']) && (($refresh['cache'] ?? '') !== 'HIT' || ($refresh['age'] ?? null) === null)) {
+                    usleep(100000);
+                    $retry = request_url($base . $path, $requestTimeout, $headerSet['headers']);
+                    if (!empty($retry['ok'])) {
+                        $refresh = $retry;
+                    }
+                }
+                $targetResults[] = array_merge([
+                    'base' => $base,
+                    'host' => $headerSet['host'],
+                ], $refresh);
+                $cacheControl = strtolower((string)($refresh['cacheControl'] ?? ''));
+                $isUncacheableResponse = ($refresh['status'] ?? 0) === 404
+                    || strpos($cacheControl, 'no-store') !== false
+                    || strpos($cacheControl, 'private') !== false;
+                if ($isUncacheableResponse) {
+                    $uncacheableResponses++;
+                } elseif (empty($refresh['ok']) || ($refresh['cache'] ?? '') !== 'HIT' || ($refresh['age'] ?? null) === null) {
+                    $allOk = false;
                 }
             }
-            $targetResults[] = array_merge(['base' => $base], $refresh);
-            $cacheControl = strtolower((string)($refresh['cacheControl'] ?? ''));
-            $isUncacheableResponse = ($refresh['status'] ?? 0) === 404
-                || strpos($cacheControl, 'no-store') !== false
-                || strpos($cacheControl, 'private') !== false;
-            if ($isUncacheableResponse) {
-                $uncacheableResponses++;
-            } elseif (empty($refresh['ok']) || ($refresh['cache'] ?? '') !== 'HIT' || ($refresh['age'] ?? null) === null) {
-                $allOk = false;
-            }
         }
-        $skippedUncacheable = count($warmTargets) > 0 && $uncacheableResponses === count($warmTargets);
+        $expectedResponses = count($warmTargets) * count($warmHeaderSets);
+        $skippedUncacheable = $expectedResponses > 0 && $uncacheableResponses === $expectedResponses;
         if ($skippedUncacheable) {
             $priorityUncacheableMap[$path] = time() + $uncacheableTtl;
         } elseif ($uncacheableResponses > 0) {
@@ -1044,6 +1075,13 @@ data:
     $warmBaseUrl = rtrim(getenv('WARM_BASE_URL') ?: $siteServer, '/');
     $warmFanoutHost = getenv('WARM_FANOUT_HOST') ?: '';
     $warmHostHeader = getenv('WARM_HOST_HEADER') ?: '';
+    $configuredWarmHosts = array_values(array_unique(array_filter(array_map(
+        'trim',
+        explode(',', getenv('WARM_HOST_HEADERS') ?: $warmHostHeader)
+    ))));
+    if (!$configuredWarmHosts) {
+        $configuredWarmHosts = [''];
+    }
     $pollSeconds = max(3, (int)(getenv('QUEUE_POLL_SECONDS') ?: 10));
     $queueBatchSize = max(5, (int)(getenv('QUEUE_BATCH_SIZE') ?: 60));
     $requestTimeout = max(3, (int)(getenv('REQUEST_TIMEOUT_SECONDS') ?: 15));
@@ -1368,36 +1406,47 @@ data:
             } else {
                 $baseTargets = expand_base_targets($warmBaseUrl, $warmFanoutHost);
             }
-            $headers = [];
+            $headerSets = [];
             if (!empty($entry['hostHeader']) && is_string($entry['hostHeader'])) {
-                $headers[] = 'Host: ' . $entry['hostHeader'];
-            } elseif ($warmHostHeader !== '') {
-                $headers[] = 'Host: ' . $warmHostHeader;
+                $headerSets[] = [
+                    'host' => $entry['hostHeader'],
+                    'headers' => ['Host: ' . $entry['hostHeader']],
+                ];
+            } else {
+                foreach ($configuredWarmHosts as $host) {
+                    $headerSets[] = [
+                        'host' => $host,
+                        'headers' => $host === '' ? [] : ['Host: ' . $host],
+                    ];
+                }
             }
             $primaryRefresh = null;
             $allOk = true;
-            foreach ($baseTargets as $baseUrl) {
-                $refresh = request_url($baseUrl . $path, $requestTimeout, $headers);
-                if (!empty($refresh['ok']) && (($refresh['cache'] ?? '') !== 'HIT' || ($refresh['age'] ?? null) === null)) {
-                    usleep(100000);
-                    $retry = request_url($baseUrl . $path, $requestTimeout, $headers);
-                    if (!empty($retry['ok'])) {
-                        $refresh = $retry;
+            foreach ($headerSets as $headerSet) {
+                foreach ($baseTargets as $baseUrl) {
+                    $refresh = request_url($baseUrl . $path, $requestTimeout, $headerSet['headers']);
+                    if (!empty($refresh['ok']) && (($refresh['cache'] ?? '') !== 'HIT' || ($refresh['age'] ?? null) === null)) {
+                        usleep(100000);
+                        $retry = request_url($baseUrl . $path, $requestTimeout, $headerSet['headers']);
+                        if (!empty($retry['ok'])) {
+                            $refresh = $retry;
+                        }
                     }
+                    if ($primaryRefresh === null) {
+                        $primaryRefresh = $refresh;
+                    }
+                    if (empty($refresh['ok'])) {
+                        $allOk = false;
+                    }
+                    echo gmdate('c') . " queue={$queueKind} path={$path} reason=" . ($entry['reason'] ?? 'queue') .
+                        " attempt={$attempt}" .
+                        " host=" . $headerSet['host'] .
+                        " base=" . $baseUrl .
+                        " status=" . ($refresh['status'] ?? 0) .
+                        " cache=" . ($refresh['cache'] ?? '-') .
+                        " age=" . (($refresh['age'] ?? '') === null ? '-' : $refresh['age']) .
+                        " seconds=" . ($refresh['seconds'] ?? '-') . "\n";
                 }
-                if ($primaryRefresh === null) {
-                    $primaryRefresh = $refresh;
-                }
-                if (empty($refresh['ok'])) {
-                    $allOk = false;
-                }
-                echo gmdate('c') . " queue={$queueKind} path={$path} reason=" . ($entry['reason'] ?? 'queue') .
-                    " attempt={$attempt}" .
-                    " base=" . $baseUrl .
-                    " status=" . ($refresh['status'] ?? 0) .
-                    " cache=" . ($refresh['cache'] ?? '-') .
-                    " age=" . (($refresh['age'] ?? '') === null ? '-' : $refresh['age']) .
-                    " seconds=" . ($refresh['seconds'] ?? '-') . "\n";
             }
             $refresh = $primaryRefresh ?: ['status' => 0, 'cacheControl' => null];
             $cacheControl = strtolower((string)($refresh['cacheControl'] ?? ''));
