@@ -23,7 +23,9 @@ spec:
       annotations:
         checksum/web-config: {{ .Values.configData.web | toJson | sha256sum }}
         checksum/env-config: {{ .Values.configData.env | default dict | toJson | sha256sum }}
-        checksum/extension-overrides: {{ ternary (printf "%s%s" (.Files.Get "files/wikiapiary/Stats.php") (.Files.Get "files/wikiapiary/stats-snapshot.json") | sha256sum) "" .Values.extensionOverrides.enabled }}
+        {{- if .Values.extensionOverrides.enabled }}
+        checksum/extension-overrides: {{ printf "%s%s" (.Files.Get "files/wikiapiary/Stats.php") (.Files.Get "files/wikiapiary/stats-snapshot.json") | sha256sum }}
+        {{- end }}
         checksum/php-sessions: {{ toJson .Values.phpSessions | sha256sum }}
     spec:
       {{- $nodeSelector := .Values.web.nodeSelector | default .Values.nodeSelector }}
