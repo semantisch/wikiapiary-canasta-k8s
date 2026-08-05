@@ -129,9 +129,13 @@ def validate_site_values(values: dict[str, Any]) -> tuple[str, list[str], list[s
             web.get("settings--global--00LegacySite.php", ""),
             "__SITE_SERVER__",
         ),
-        "configData.web.settings--global--00LegacySite.php accepted hosts": (
-            web.get("settings--global--00LegacySite.php", ""),
+        "configData.web.settings--wikis--main--00MirrorOrigin.php accepted hosts": (
+            web.get("settings--wikis--main--00MirrorOrigin.php", ""),
             "__SITE_HOSTS_CSV__",
+        ),
+        "configData.web.settings--wikis--main--00MirrorOrigin.php canonical server": (
+            web.get("settings--wikis--main--00MirrorOrigin.php", ""),
+            "__SITE_SERVER__",
         ),
         "configData.web.settings--global--04LegacyExtensions.php": (
             web.get("settings--global--04LegacyExtensions.php", ""),
@@ -268,6 +272,25 @@ def validate_rendered(
     web_config = find_one(documents, "ConfigMap", "-web-config").get("data", {})
     caddy_config = find_one(documents, "ConfigMap", "-caddy-config").get("data", {})
     varnish_config = find_one(documents, "ConfigMap", "-varnish-config").get("data", {})
+    for name, content in web_config.items():
+        if not name.endswith(".php"):
+            continue
+        with tempfile.NamedTemporaryFile(
+            mode="w+", suffix=".php", encoding="utf-8"
+        ) as php_file:
+            php_file.write(content)
+            php_file.flush()
+            lint = subprocess.run(
+                ["php", "-l", php_file.name],
+                check=False,
+                text=True,
+                capture_output=True,
+            )
+        if lint.returncode != 0:
+            raise RuntimeError(
+                f"rendered PHP setting {name} failed syntax validation:\n"
+                f"{lint.stdout}{lint.stderr}"
+            )
     checks = {
         "wikis.yaml primary URL": (web_config.get("wikis.yaml", ""), f"url: {primary}"),
         "MediaWiki canonical server": (
@@ -275,11 +298,11 @@ def validate_rendered(
             f"?: '{server}'",
         ),
         "MediaWiki accepted hosts": (
-            web_config.get("settings--global--00LegacySite.php", ""),
+            web_config.get("settings--wikis--main--00MirrorOrigin.php", ""),
             f"?: '{hosts_csv}'",
         ),
         "MediaWiki trusted request-host handoff": (
-            web_config.get("settings--global--00LegacySite.php", ""),
+            web_config.get("settings--wikis--main--00MirrorOrigin.php", ""),
             "HTTP_X_WIKIAPIARY_REQUEST_HOST",
         ),
         "Semantic MediaWiki host": (

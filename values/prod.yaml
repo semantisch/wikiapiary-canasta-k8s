@@ -305,24 +305,8 @@ configData:
       $wgUsePathInfo = true;
       $wgScriptPath = "/w";
       $wgArticlePath = "/wiki/$1";
-      $wikiApiaryCanonicalServer = getenv( 'MW_SITE_SERVER' ) ?: '__SITE_SERVER__';
-      $wikiApiaryAllowedHosts = array_values( array_filter( array_map(
-          'trim',
-          explode( ',', getenv( 'MW_SITE_HOSTS' ) ?: '__SITE_HOSTS_CSV__' )
-      ) ) );
-      $wikiApiaryRequestHostHeader = $_SERVER['HTTP_X_WIKIAPIARY_REQUEST_HOST']
-          ?? $_SERVER['HTTP_HOST']
-          ?? '';
-      $wikiApiaryRequestHost = strtolower( preg_replace(
-          '/:\d+$/',
-          '',
-          $wikiApiaryRequestHostHeader
-      ) ?? '' );
-      $wikiApiaryScheme = parse_url( $wikiApiaryCanonicalServer, PHP_URL_SCHEME ) ?: 'https';
-      $wgServer = in_array( $wikiApiaryRequestHost, $wikiApiaryAllowedHosts, true )
-          ? $wikiApiaryScheme . '://' . $wikiApiaryRequestHost
-          : $wikiApiaryCanonicalServer;
-      $wgCanonicalServer = $wikiApiaryCanonicalServer;
+      $wgServer = getenv( 'MW_SITE_SERVER' ) ?: '__SITE_SERVER__';
+      $wgCanonicalServer = $wgServer;
       $wgLogos = [
           '1x' => "/w/images/wikiapiary/thumb/5/5e/WikiApiary_Bee.png/128px-WikiApiary_Bee.png",
           'icon' => "/w/images/wikiapiary/thumb/5/5e/WikiApiary_Bee.png/128px-WikiApiary_Bee.png",
@@ -818,6 +802,29 @@ configData:
           );
           return true;
       };
+    # Canasta loads per-wiki PHP after FarmConfigLoader has selected the wiki
+    # and set its routing hostname. Apply the independent mirror origin here so
+    # the farm router cannot overwrite it afterward.
+    settings--wikis--main--00MirrorOrigin.php: |
+      <?php
+      $wikiApiaryCanonicalServer = getenv( 'MW_SITE_SERVER' ) ?: '__SITE_SERVER__';
+      $wikiApiaryAllowedHosts = array_values( array_filter( array_map(
+          'trim',
+          explode( ',', getenv( 'MW_SITE_HOSTS' ) ?: '__SITE_HOSTS_CSV__' )
+      ) ) );
+      $wikiApiaryRequestHostHeader = $_SERVER['HTTP_X_WIKIAPIARY_REQUEST_HOST']
+          ?? $_SERVER['HTTP_HOST']
+          ?? '';
+      $wikiApiaryRequestHost = strtolower( preg_replace(
+          '/:\d+$/',
+          '',
+          $wikiApiaryRequestHostHeader
+      ) ?? '' );
+      $wikiApiaryScheme = parse_url( $wikiApiaryCanonicalServer, PHP_URL_SCHEME ) ?: 'https';
+      $wgServer = in_array( $wikiApiaryRequestHost, $wikiApiaryAllowedHosts, true )
+          ? $wikiApiaryScheme . '://' . $wikiApiaryRequestHost
+          : $wikiApiaryCanonicalServer;
+      $wgCanonicalServer = $wikiApiaryCanonicalServer;
     settings--wikis--main--99DbOverride.php: |
       <?php
       $wgDBtype = 'mysql';
