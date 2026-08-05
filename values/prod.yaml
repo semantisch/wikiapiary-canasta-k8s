@@ -68,6 +68,7 @@ phpSessions:
 cacheWarmer:
   enabled: true
   workerEnabled: true
+  suspend: false
   requestBaseUrl: "http://varnish"
   warmFanoutHost: "varnish-headless"
   nodeSelector:

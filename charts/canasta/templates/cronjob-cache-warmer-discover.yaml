@@ -8,6 +8,7 @@ metadata:
     {{- include "canasta.labels" . | nindent 4 }}
     app.kubernetes.io/component: cache-warmer
 spec:
+  suspend: {{ .Values.cacheWarmer.suspend }}
   schedule: {{ .Values.cacheWarmer.discoverSchedule | quote }}
   startingDeadlineSeconds: {{ .Values.cacheWarmer.startingDeadlineSeconds }}
   concurrencyPolicy: Forbid

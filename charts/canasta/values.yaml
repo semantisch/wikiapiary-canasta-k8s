@@ -86,6 +86,7 @@ phpSessions:
 cacheWarmer:
   enabled: false
   workerEnabled: false
+  suspend: false
   image: ""
   requestBaseUrl: "http://varnish"
   warmFanoutHost: ""
