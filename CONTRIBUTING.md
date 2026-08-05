@@ -22,7 +22,8 @@ affect the deployment path and require maintainer review. A merge to protected
 
 For hostname work, use `site.primaryHost` and `site.additionalHosts`; do not add
 literal deployment hostnames inside MediaWiki or Caddy configuration blobs.
-Follow `docs/hostname-cutover.md` for the staged migration procedure.
+Follow [`docs/hostname/README.md`](docs/hostname/README.md) for the staged
+migration procedure.
 
 ## Secrets and security reports
 
