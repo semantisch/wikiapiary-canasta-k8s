@@ -18,13 +18,46 @@ Caddy, cache warming, and ingress-facing application identity.
 {{- end }}
 
 {{/*
-All accepted public hostnames, encoded as JSON so callers can recover a list
-with fromJsonArray.
+Edge certificate hostnames. The primary host is always covered automatically;
+configured tlsHosts are retained aliases that survive a canonical-host change.
+The JSON encoding lets callers recover a list with fromJsonArray.
+*/}}
+{{- define "canasta.edgeTlsHosts" -}}
+{{- $seen := dict -}}
+{{- $hosts := list -}}
+{{- $candidates := list (include "canasta.primaryHost" .) -}}
+{{- range (.Values.ingress.edge.tlsHosts | default list) -}}
+{{- $candidates = append $candidates . -}}
+{{- end -}}
+{{- range $candidates -}}
+{{- if and (ne . "localhost") (not (hasKey $seen .)) -}}
+{{- $_ := set $seen . true -}}
+{{- $hosts = append $hosts . -}}
+{{- end -}}
+{{- end -}}
+{{- $hosts | toJson -}}
+{{- end }}
+
+{{/*
+All accepted public hostnames. Edge TLS aliases are also routed application
+aliases, which retains the previous canonical host after a primaryHost-only
+cutover. The JSON encoding lets callers recover a list with fromJsonArray.
 */}}
 {{- define "canasta.hosts" -}}
-{{- $hosts := list (include "canasta.primaryHost" .) -}}
+{{- $seen := dict -}}
+{{- $hosts := list -}}
+{{- $candidates := list (include "canasta.primaryHost" .) -}}
 {{- range (.Values.site.additionalHosts | default list) -}}
+{{- $candidates = append $candidates . -}}
+{{- end -}}
+{{- range (include "canasta.edgeTlsHosts" . | fromJsonArray) -}}
+{{- $candidates = append $candidates . -}}
+{{- end -}}
+{{- range $candidates -}}
+{{- if not (hasKey $seen .) -}}
+{{- $_ := set $seen . true -}}
 {{- $hosts = append $hosts . -}}
+{{- end -}}
 {{- end -}}
 {{- $hosts | toJson -}}
 {{- end }}

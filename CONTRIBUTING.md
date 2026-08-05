@@ -20,10 +20,10 @@ Changes under `values/prod.yaml`, `argocd/`, Helm templates, and GitHub workflow
 affect the deployment path and require maintainer review. A merge to protected
 `main` is a production release: Argo CD automatically reconciles it.
 
-For hostname work, use `site.primaryHost` and `site.additionalHosts`; do not add
-literal deployment hostnames inside MediaWiki or Caddy configuration blobs.
-Follow [`docs/hostname/README.md`](docs/hostname/README.md) for the staged
-migration procedure.
+For a canonical-host change, edit only `site.primaryHost`; do not add literal
+deployment hostnames inside MediaWiki or Caddy configuration blobs. Retained
+TLS aliases belong in `ingress.edge.tlsHosts`, not in a cutover PR. Follow
+[`docs/hostname/README.md`](docs/hostname/README.md) for the migration procedure.
 
 ## Secrets and security reports
 

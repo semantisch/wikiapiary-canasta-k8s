@@ -81,8 +81,10 @@ cluster. Runtime secrets remain in Kubernetes and are referenced by name.
 
 ## Wiki APIs
 
-The live API origin follows `site.primaryHost` in `values/prod.yaml`. Useful
-endpoints for bots, crawlers, integrations, and interactive development are:
+The deployed canonical API origin follows `site.primaryHost` in
+`values/prod.yaml`. These links use the retained API hostname
+`wikiapiary.dobriy.ai`, which remains routed and certificate-covered after the
+canonical cutover:
 
 - [MediaWiki Action API](https://wikiapiary.dobriy.ai/w/api.php) — query, edit,
   login, token, and extension modules.
@@ -100,12 +102,15 @@ their origin from the canonical hostname rather than depending on an alias.
 ## Hostname configuration
 
 `site.primaryHost` in `values/prod.yaml` is the canonical source of truth for
-MediaWiki, Caddy, ingress routing, job runners, Semantic MediaWiki, and cache
-warming. `site.additionalHosts` contains aliases accepted during migrations.
+MediaWiki, Caddy, ingress routing, edge TLS, job runners, Semantic MediaWiki,
+and cache warming. The primary host is automatically added to routing and the
+edge certificate. `ingress.edge.tlsHosts` contains retained TLS aliases, which
+also remain routed after a canonical-host change.
 
-Do not replace only an ingress hostname. Follow the complete
-[hostname-change runbook](docs/hostname/README.md), which identifies every value
-to edit, the required DNS and TLS order, validation, rollout, and rollback.
+After DNS is pointed at the edge load balancer, the production cutover requires
+changing only `site.primaryHost`. Follow the complete
+[hostname-change runbook](docs/hostname/README.md) for the required DNS order,
+validation, rollout, and one-line rollback.
 
 ## Local validation
 
