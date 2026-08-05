@@ -523,6 +523,11 @@ data:
                     'method' => $method,
                     'timeout' => $timeout,
                     'ignore_errors' => true,
+                    // Warm only the selected Varnish object. Following an
+                    // application redirect would leave the cluster, depend on
+                    // public DNS, and warm a randomly load-balanced replica.
+                    'follow_location' => 0,
+                    'max_redirects' => 0,
                     'header' => implode("\r\n", array_merge([
                         'User-Agent: WikiApiaryCacheWarmer/1.0',
                         'Accept: text/html,application/xhtml+xml',
@@ -863,6 +868,10 @@ data:
                     'method' => 'GET',
                     'timeout' => $timeout,
                     'ignore_errors' => true,
+                    // Do not follow canonical redirects through the public
+                    // load balancer; this request targets one cache replica.
+                    'follow_location' => 0,
+                    'max_redirects' => 0,
                     'header' => implode("\r\n", array_merge([
                         'User-Agent: WikiApiaryPriorityWarmer/1.0',
                         'Accept: text/html,application/xhtml+xml',
@@ -1157,6 +1166,9 @@ data:
                     'method' => 'GET',
                     'timeout' => $timeout,
                     'ignore_errors' => true,
+                    // Keep rewarming inside the selected Varnish replica.
+                    'follow_location' => 0,
+                    'max_redirects' => 0,
                     'header' => implode("\r\n", array_merge([
                         'User-Agent: WikiApiaryRewarmWorker/1.0',
                         'Accept: text/html,application/xhtml+xml',

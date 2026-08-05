@@ -24,6 +24,8 @@ class CacheBackendHandler(BaseHTTPRequestHandler):
         cache_control = "public, max-age=3600"
         cache_status = "HIT"
         cache_age: str | None = "42"
+        status = 200
+        location: str | None = None
 
         if parsed.path == "/w/api.php":
             content_type = "application/json"
@@ -66,15 +68,22 @@ class CacheBackendHandler(BaseHTTPRequestHandler):
                 b"</div></html>"
             )
 
+        if parsed.path == "/":
+            status = 301
+            location = "http://127.0.0.1:9/must-not-be-followed"
+            payload = b""
+
         if parsed.path == "/wiki/Uncacheable":
             cache_control = "no-cache, no-store, max-age=0, must-revalidate"
             cache_status = "MISS"
             cache_age = None
 
-        self.send_response(200)
+        self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Cache-Control", cache_control)
         self.send_header("X-WikiApiary-Cache", cache_status)
+        if location is not None:
+            self.send_header("Location", location)
         if cache_age is not None:
             self.send_header("Age", cache_age)
         self.end_headers()
@@ -236,6 +245,16 @@ def validate(rendered_path: Path) -> None:
             }
             run_checked(["php", str(script_dir / "priority.php")], env=priority_env)
             priority_report = assert_successful_report(cache_dir / "priority-warm-run.json")
+            root_result = next(
+                (
+                    result
+                    for result in priority_report.get("results", [])
+                    if result.get("path") == "/"
+                ),
+                None,
+            )
+            if not root_result or root_result.get("refresh", {}).get("status") != 301:
+                raise RuntimeError("priority warmer followed the root redirect")
             priority_seeds = priority_report.get("prioritySeeds", [])
             for expected in ["/wiki/Main_Page", "/wiki/Websites/Youngest"]:
                 if expected not in priority_seeds:
