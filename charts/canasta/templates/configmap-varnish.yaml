@@ -7,12 +7,13 @@ metadata:
     {{- include "canasta.labels" . | nindent 4 }}
     app.kubernetes.io/component: varnish
 data:
+  {{- $primaryHost := include "canasta.primaryHost" . }}
   {{- if .Values.configData.varnish }}
   {{- range $key, $value := .Values.configData.varnish }}
   {{ $key }}: |
-    {{- $value | nindent 4 }}
+    {{- $value | replace "__PRIMARY_HOST__" $primaryHost | nindent 4 }}
   {{- end }}
   {{- else }}
   default.vcl: |
-    {{- .Files.Get "files/default.vcl" | nindent 4 }}
+    {{- .Files.Get "files/default.vcl" | replace "__PRIMARY_HOST__" $primaryHost | nindent 4 }}
   {{- end }}

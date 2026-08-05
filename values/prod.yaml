@@ -310,10 +310,13 @@ configData:
           'trim',
           explode( ',', getenv( 'MW_SITE_HOSTS' ) ?: '__SITE_HOSTS_CSV__' )
       ) ) );
+      $wikiApiaryRequestHostHeader = $_SERVER['HTTP_X_WIKIAPIARY_REQUEST_HOST']
+          ?? $_SERVER['HTTP_HOST']
+          ?? '';
       $wikiApiaryRequestHost = strtolower( preg_replace(
           '/:\d+$/',
           '',
-          $_SERVER['HTTP_HOST'] ?? ''
+          $wikiApiaryRequestHostHeader
       ) ?? '' );
       $wikiApiaryScheme = parse_url( $wikiApiaryCanonicalServer, PHP_URL_SCHEME ) ?: 'https';
       $wgServer = in_array( $wikiApiaryRequestHost, $wikiApiaryAllowedHosts, true )

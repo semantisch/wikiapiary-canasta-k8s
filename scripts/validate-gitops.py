@@ -267,6 +267,7 @@ def validate_rendered(
 
     web_config = find_one(documents, "ConfigMap", "-web-config").get("data", {})
     caddy_config = find_one(documents, "ConfigMap", "-caddy-config").get("data", {})
+    varnish_config = find_one(documents, "ConfigMap", "-varnish-config").get("data", {})
     checks = {
         "wikis.yaml primary URL": (web_config.get("wikis.yaml", ""), f"url: {primary}"),
         "MediaWiki canonical server": (
@@ -277,9 +278,25 @@ def validate_rendered(
             web_config.get("settings--global--00LegacySite.php", ""),
             f"?: '{hosts_csv}'",
         ),
+        "MediaWiki trusted request-host handoff": (
+            web_config.get("settings--global--00LegacySite.php", ""),
+            "HTTP_X_WIKIAPIARY_REQUEST_HOST",
+        ),
         "Semantic MediaWiki host": (
             web_config.get("settings--global--04LegacyExtensions.php", ""),
             f"?: '{primary}'",
+        ),
+        "Varnish requested-host handoff": (
+            varnish_config.get("default.vcl", ""),
+            "set bereq.http.X-WikiApiary-Request-Host = bereq.http.Host;",
+        ),
+        "Varnish canonical Canasta backend host": (
+            varnish_config.get("default.vcl", ""),
+            f'set bereq.http.Host = "{primary}";',
+        ),
+        "Varnish error responses are uncacheable": (
+            varnish_config.get("default.vcl", ""),
+            "if (beresp.status >= 400)",
         ),
     }
     caddyfile = caddy_config.get("Caddyfile", "")
@@ -368,6 +385,16 @@ def render_cutover(
             raise RuntimeError(
                 f"hostname cutover must change the {component} site-host checksum"
             )
+    current_varnish = find_one(current_documents, "Deployment", "-varnish")
+    cutover_varnish = find_one(documents, "Deployment", "-varnish")
+    current_varnish_checksum = current_varnish["spec"]["template"]["metadata"][
+        "annotations"
+    ].get("checksum/varnish-config")
+    cutover_varnish_checksum = cutover_varnish["spec"]["template"]["metadata"][
+        "annotations"
+    ].get("checksum/varnish-config")
+    if not current_varnish_checksum or current_varnish_checksum == cutover_varnish_checksum:
+        raise RuntimeError("hostname cutover must change the Varnish pod checksum")
     return documents
 
 
