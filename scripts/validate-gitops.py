@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Iterable
-import json
 from pathlib import Path
 import re
 import subprocess
@@ -89,23 +88,37 @@ def validate_site_values(values: dict[str, Any]) -> tuple[str, list[str], list[s
         raise RuntimeError(f"invalid site.primaryHost: {primary!r}")
     if not isinstance(aliases, list) or not all(isinstance(host, str) for host in aliases):
         raise RuntimeError("site.additionalHosts must be a list of hostnames")
-    hosts = [primary, *aliases]
+    site_hosts = [primary, *aliases]
     if any(not HOST_PATTERN.fullmatch(host) or host == "localhost" for host in aliases):
         raise RuntimeError(f"invalid site.additionalHosts: {aliases!r}")
-    if len(hosts) != len(set(hosts)):
-        raise RuntimeError(f"site hostnames must be unique: {hosts!r}")
+    if len(site_hosts) != len(set(site_hosts)):
+        raise RuntimeError(f"site hostnames must be unique: {site_hosts!r}")
 
     edge = values.get("ingress", {}).get("edge", {})
-    tls_hosts = edge.get("tlsHosts", [])
-    if not isinstance(tls_hosts, list) or not all(isinstance(host, str) for host in tls_hosts):
+    configured_tls_hosts = edge.get("tlsHosts", [])
+    if not isinstance(configured_tls_hosts, list) or not all(
+        isinstance(host, str) for host in configured_tls_hosts
+    ):
         raise RuntimeError("ingress.edge.tlsHosts must be a list of hostnames")
-    if edge.get("tls") and primary not in tls_hosts:
-        raise RuntimeError("the primary host must be covered by ingress.edge.tlsHosts")
-    unknown_tls_hosts = set(tls_hosts).difference(hosts)
-    if unknown_tls_hosts:
+    if any(
+        not HOST_PATTERN.fullmatch(host) or host == "localhost"
+        for host in configured_tls_hosts
+    ):
+        raise RuntimeError(f"invalid ingress.edge.tlsHosts: {configured_tls_hosts!r}")
+    if len(configured_tls_hosts) != len(set(configured_tls_hosts)):
         raise RuntimeError(
-            f"edge TLS hosts must also be routed site hosts: {sorted(unknown_tls_hosts)!r}"
+            f"ingress.edge.tlsHosts must be unique: {configured_tls_hosts!r}"
         )
+
+    # Edge TLS hosts double as retained routing aliases. This lets a future
+    # primaryHost-only change add the new canonical host automatically while
+    # keeping the former primary hostname reachable and certificate-covered.
+    hosts = list(dict.fromkeys([*site_hosts, *configured_tls_hosts]))
+    tls_hosts = (
+        list(dict.fromkeys([primary, *configured_tls_hosts]))
+        if edge.get("tls")
+        else []
+    )
 
     config_data = values.get("configData", {})
     web = config_data.get("web", {})
@@ -260,13 +273,12 @@ def validate_argocd(application: dict[str, Any]) -> None:
 
 def render_cutover(
     root: Path,
-    primary: str,
     hosts: list[str],
+    tls_hosts: list[str],
     current_documents: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    aliases = [host for host in hosts if host != primary and host != CUTOVER_HOST]
-    cutover_hosts = [CUTOVER_HOST, primary, *aliases]
-    cutover_tls_hosts = [CUTOVER_HOST, primary]
+    cutover_hosts = list(dict.fromkeys([CUTOVER_HOST, *hosts]))
+    cutover_tls_hosts = list(dict.fromkeys([CUTOVER_HOST, *tls_hosts]))
     command = [
         "helm",
         "template",
@@ -276,10 +288,6 @@ def render_cutover(
         str(root / "values/prod.yaml"),
         "--set-string",
         f"site.primaryHost={CUTOVER_HOST}",
-        "--set-json",
-        f"site.additionalHosts={json.dumps(cutover_hosts[1:])}",
-        "--set-json",
-        f"ingress.edge.tlsHosts={json.dumps(cutover_tls_hosts)}",
     ]
     result = subprocess.run(command, check=False, text=True, capture_output=True)
     if result.returncode != 0:
@@ -315,10 +323,10 @@ def main() -> None:
     validate_argocd(load_one(root / "argocd/wikiapiary.yaml"))
     rendered_documents = load_documents(args.rendered)
     validate_rendered(rendered_documents, primary, hosts, tls_hosts)
-    render_cutover(root, primary, hosts, rendered_documents)
+    render_cutover(root, hosts, tls_hosts, rendered_documents)
     print(
         f"GitOps validation passed: primary={primary}, hosts={','.join(hosts)}, "
-        f"tested-cutover={CUTOVER_HOST}"
+        f"tested-primaryHost-only-cutover={CUTOVER_HOST}"
     )
 
 

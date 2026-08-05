@@ -45,7 +45,7 @@ jobs:
       - name: Render production manifests
         run: helm template canasta-wikiapiary charts/canasta -f values/prod.yaml > /tmp/wikiapiary-rendered.yaml
 
-      - name: Validate GitOps and hostname cutover invariants
+      - name: Validate GitOps and primaryHost-only cutover invariants
         run: python3 scripts/validate-gitops.py /tmp/wikiapiary-rendered.yaml
 
       - name: Validate cache-warmer scripts and behavior

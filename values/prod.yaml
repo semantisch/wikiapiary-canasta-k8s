@@ -7,8 +7,9 @@ image:
   pullPolicy: IfNotPresent
 
 site:
-  # Change this only after the new hostname resolves to the edge load balancer
-  # and is included in ingress.edge.tlsHosts. See docs/hostname-cutover.md.
+  # Future cutover: after the new hostname resolves to the edge load balancer,
+  # change only this value. Routing, TLS, and application identity follow it.
+  # See docs/hostname/README.md.
   primaryHost: wikiapiary.dobriy.ai
   additionalHosts:
     - dev.wikiapiary.com
@@ -187,6 +188,8 @@ ingress:
     backendServiceName: bunkerweb-external
     backendServicePortName: http
     tls: true
+    # Retained TLS/routing aliases. The primary host is added automatically, so
+    # this entry preserves the current hostname after a future canonical switch.
     tlsHosts:
       - wikiapiary.dobriy.ai
     tlsSecretName: canasta-wikiapiary-tls

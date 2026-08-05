@@ -21,7 +21,7 @@ metadata:
     {{- end }}
 spec:
   ingressClassName: {{ .Values.ingress.edge.className }}
-  {{- $edgeTlsHosts := .Values.ingress.edge.tlsHosts | default list }}
+  {{- $edgeTlsHosts := include "canasta.edgeTlsHosts" . | fromJsonArray }}
   {{- $edgeTlsSecretName := .Values.ingress.edge.tlsSecretName | default (printf "%s-tls" $fullname) }}
   {{- if and .Values.ingress.edge.tls (gt (len $edgeTlsHosts) 0) }}
   tls:
