@@ -1,0 +1,136 @@
+digraph wikiapiary {
+  graph [
+    bgcolor="#ffffff",
+    pad="0.22",
+    nodesep="0.48",
+    ranksep="0.62",
+    splines="line",
+    fontname="Liberation Sans",
+    fontsize="20",
+    fontcolor="#0f172a",
+    compound="true",
+    newrank="true"
+  ];
+
+  node [
+    shape="box",
+    style="rounded,filled",
+    fixedsize="true",
+    width="3.25",
+    height="1.02",
+    fillcolor="#ecfeff",
+    color="#0f766e",
+    fontcolor="#134e4a",
+    fontname="Liberation Sans",
+    fontsize="16",
+    penwidth="2.4",
+    margin="0.14,0.10"
+  ];
+
+  edge [
+    color="#475569",
+    fontcolor="#334155",
+    fontname="Liberation Sans",
+    fontsize="13",
+    penwidth="2.4",
+    arrowsize="0.60"
+  ];
+
+  subgraph cluster_external {
+    label="OUTSIDE THE CLUSTER";
+    labelloc="t";
+    style="rounded,filled";
+    fillcolor="#fafafa";
+    color="#6366f1";
+    penwidth="2.2";
+    margin="18";
+
+    git [
+      label="GitHub delivery\ncontributors • PR + CI • main",
+      fillcolor="#eef2ff",
+      color="#4f46e5",
+      fontcolor="#312e81"
+    ];
+    traffic [
+      label="Public entry\nDNS • readers • editors • bots",
+      fillcolor="#eff6ff",
+      color="#0284c7",
+      fontcolor="#0c4a6e"
+    ];
+
+    { rank="same"; git; traffic; }
+  }
+
+  subgraph cluster_k8s {
+    label="KUBERNETES CLUSTER";
+    labelloc="t";
+    style="rounded,filled";
+    fillcolor="#f8fafc";
+    color="#334155";
+    penwidth="2.6";
+    margin="22";
+
+    argo [
+      label="Argo CD\npull • prune • self-heal",
+      fillcolor="#f0fdf4",
+      color="#16a34a",
+      fontcolor="#14532d"
+    ];
+    crawler [
+      label="Crawler\nmaintained in a separate repo",
+      style="rounded,dashed,filled",
+      fillcolor="#faf5ff",
+      color="#9333ea",
+      fontcolor="#581c87"
+    ];
+    edge_gateway [
+      label="Edge gateway\nLB • NGINX • BunkerWeb",
+      fillcolor="#fff7ed",
+      color="#ea580c",
+      fontcolor="#7c2d12"
+    ];
+    caddy [label="Caddy\n2 replicas"];
+    varnish [
+      label="Varnish\n2 replicas",
+      group="cache-column",
+      fillcolor="#fefce8",
+      color="#ca8a04",
+      fontcolor="#713f12"
+    ];
+    web [label="MediaWiki (Canasta)\n2 replicas"];
+    state [
+      label="Application state\nMariaDB • Redis • Elasticsearch\nNFS • RWX volumes",
+      group="state-column",
+      fillcolor="#fff1f2",
+      color="#e11d48",
+      fontcolor="#881337"
+    ];
+    cache [
+      label="Cache automation\nCronJobs • rewarm worker",
+      group="cache-column"
+    ];
+    jobs [
+      label="Job runners\n2 replicas",
+      group="state-column"
+    ];
+
+    { rank="same"; argo; crawler; }
+    { rank="same"; edge_gateway; caddy; varnish; web; state; }
+    { rank="same"; cache; jobs; }
+
+    argo -> edge_gateway [label="reconciles resources", style="dashed"];
+    crawler -> edge_gateway [label="authenticated crawler API", style="dashed"];
+    edge_gateway -> caddy -> varnish -> web -> state;
+    cache:n -> varnish:s [
+      label="discover + warm",
+      constraint="false",
+      weight="100"
+    ];
+    jobs:n -> state:s [weight="100"];
+
+    varnish -> cache [style="invis", weight="8"];
+  }
+
+  git -> argo [label="desired state"];
+  traffic -> edge_gateway [label="HTTPS"];
+}

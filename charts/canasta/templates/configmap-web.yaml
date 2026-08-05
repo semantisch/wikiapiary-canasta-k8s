@@ -8,8 +8,10 @@ metadata:
     {{- include "canasta.labels" . | nindent 4 }}
     app.kubernetes.io/component: web
 data:
+  {{- $primaryHost := include "canasta.primaryHost" . }}
+  {{- $siteServer := include "canasta.siteServer" . }}
   {{- range $key, $value := .Values.configData.web }}
   {{ $key }}: |
-    {{- $value | nindent 4 }}
+    {{- $value | replace "__PRIMARY_HOST__" $primaryHost | replace "__SITE_SERVER__" $siteServer | nindent 4 }}
   {{- end }}
 {{- end }}

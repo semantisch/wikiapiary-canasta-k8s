@@ -38,13 +38,13 @@ spec:
               command: ["/bin/sh", "/scripts/run-discover.sh"]
               env:
                 - name: SITE_SERVER
-                  value: "https://{{ index .Values.domains 0 }}"
+                  value: {{ include "canasta.siteServer" . | quote }}
                 - name: SITE_HOST
-                  value: "{{ index .Values.domains 0 }}"
+                  value: {{ include "canasta.primaryHost" . | quote }}
                 - name: DISCOVER_BASE_URL
                   value: "{{ .Values.cacheWarmer.requestBaseUrl }}"
                 - name: DISCOVER_HOST_HEADER
-                  value: "{{ index .Values.domains 0 }}"
+                  value: {{ include "canasta.primaryHost" . | quote }}
                 - name: WARM_CACHE_DIR
                   value: /warm-cache
                 - name: ACCESS_LOG_FILE

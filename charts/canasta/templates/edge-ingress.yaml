@@ -1,7 +1,7 @@
 {{- if and .Values.ingress.enabled .Values.ingress.edge.enabled }}
 {{- $fullname := include "canasta.fullname" . }}
 {{- $ruleHosts := dict }}
-{{- range .Values.domains }}
+{{- range (include "canasta.hosts" . | fromJsonArray) }}
 {{- $domain := regexReplaceAll ":[0-9]+$" (regexReplaceAll "/.*$" . "") "" }}
 {{- $_ := set $ruleHosts $domain true }}
 {{- end }}

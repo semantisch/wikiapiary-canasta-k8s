@@ -38,13 +38,13 @@ spec:
               command: ["/bin/sh", "/scripts/run-warm-priority.sh"]
               env:
                 - name: SITE_SERVER
-                  value: "https://{{ index .Values.domains 0 }}"
+                  value: {{ include "canasta.siteServer" . | quote }}
                 - name: WARM_BASE_URL
                   value: "{{ .Values.cacheWarmer.requestBaseUrl }}"
                 - name: WARM_FANOUT_HOST
                   value: "{{ .Values.cacheWarmer.warmFanoutHost }}"
                 - name: WARM_HOST_HEADER
-                  value: "{{ index .Values.domains 0 }}"
+                  value: {{ include "canasta.primaryHost" . | quote }}
                 - name: WARM_CACHE_DIR
                   value: /warm-cache
                 - name: PRIORITY_HOT_PAGES_LIMIT
@@ -113,13 +113,13 @@ spec:
               command: ["/bin/sh", "/scripts/run-warm.sh"]
               env:
                 - name: SITE_SERVER
-                  value: "https://{{ index .Values.domains 0 }}"
+                  value: {{ include "canasta.siteServer" . | quote }}
                 - name: WARM_BASE_URL
                   value: "{{ .Values.cacheWarmer.requestBaseUrl }}"
                 - name: WARM_FANOUT_HOST
                   value: "{{ .Values.cacheWarmer.warmFanoutHost }}"
                 - name: WARM_HOST_HEADER
-                  value: "{{ index .Values.domains 0 }}"
+                  value: {{ include "canasta.primaryHost" . | quote }}
                 - name: WARM_CACHE_DIR
                   value: /warm-cache
                 - name: RECENT_CHANGES_LIMIT

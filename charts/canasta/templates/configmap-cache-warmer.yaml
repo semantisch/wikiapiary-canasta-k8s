@@ -20,7 +20,7 @@ data:
     $seedFile = $baseDir . '/seed-pages.json';
     $translationFile = $baseDir . '/translation-pages.json';
     $stateFile = $baseDir . '/discovery-state.json';
-    $siteServer = rtrim(getenv('SITE_SERVER') ?: 'https://wikiapiary.dobriy.ai', '/');
+    $siteServer = rtrim(getenv('SITE_SERVER') ?: '{{ include "canasta.siteServer" . }}', '/');
     $warmBaseUrl = rtrim(getenv('WARM_BASE_URL') ?: $siteServer, '/');
     $warmHostHeader = getenv('WARM_HOST_HEADER') ?: '';
     $siteHost = getenv('SITE_HOST') ?: parse_url($siteServer, PHP_URL_HOST);
@@ -418,7 +418,7 @@ data:
     $reportFile = $baseDir . '/warm-run.json';
     $warmStateFile = $baseDir . '/warm-state.json';
     $uncacheableFile = $baseDir . '/uncacheable-pages.json';
-    $siteServer = rtrim(getenv('SITE_SERVER') ?: 'https://wikiapiary.dobriy.ai', '/');
+    $siteServer = rtrim(getenv('SITE_SERVER') ?: '{{ include "canasta.siteServer" . }}', '/');
     $warmBaseUrl = rtrim(getenv('WARM_BASE_URL') ?: $siteServer, '/');
     $warmFanoutHost = getenv('WARM_FANOUT_HOST') ?: '';
     $warmHostHeader = getenv('WARM_HOST_HEADER') ?: '';
@@ -718,7 +718,7 @@ data:
     date_default_timezone_set('UTC');
 
     $baseDir = getenv('WARM_CACHE_DIR') ?: '/warm-cache';
-    $siteServer = rtrim(getenv('SITE_SERVER') ?: 'https://wikiapiary.dobriy.ai', '/');
+    $siteServer = rtrim(getenv('SITE_SERVER') ?: '{{ include "canasta.siteServer" . }}', '/');
     $warmBaseUrl = rtrim(getenv('WARM_BASE_URL') ?: $siteServer, '/');
     $warmFanoutHost = getenv('WARM_FANOUT_HOST') ?: '';
     $warmHostHeader = getenv('WARM_HOST_HEADER') ?: '';
@@ -1032,7 +1032,7 @@ data:
     date_default_timezone_set('UTC');
 
     $baseDir = getenv('WARM_CACHE_DIR') ?: '/warm-cache';
-    $siteServer = rtrim(getenv('SITE_SERVER') ?: 'https://wikiapiary.dobriy.ai', '/');
+    $siteServer = rtrim(getenv('SITE_SERVER') ?: '{{ include "canasta.siteServer" . }}', '/');
     $siteHost = getenv('SITE_HOST') ?: parse_url($siteServer, PHP_URL_HOST);
     $priorityQueueFile = $baseDir . '/rewarm-priority.ndjson';
     $queueFile = $baseDir . '/rewarm-queue.ndjson';
