@@ -112,7 +112,7 @@
 <g id="node8" class="node">
 <title>web</title>
 <path fill="#ecfeff" stroke="#0f766e" stroke-width="2.4" d="M1164,-236C1164,-236 954,-236 954,-236 948,-236 942,-230 942,-224 942,-224 942,-175 942,-175 942,-169 948,-163 954,-163 954,-163 1164,-163 1164,-163 1170,-163 1176,-169 1176,-175 1176,-175 1176,-224 1176,-224 1176,-230 1170,-236 1164,-236"/>
-<text text-anchor="middle" x="1059" y="-204.7" font-family="Liberation Sans" font-size="16.00" fill="#134e4a">MediaWiki</text>
+<text text-anchor="middle" x="1059" y="-204.7" font-family="Liberation Sans" font-size="16.00" fill="#134e4a">MediaWiki (Canasta)</text>
 <text text-anchor="middle" x="1059" y="-186.7" font-family="Liberation Sans" font-size="16.00" fill="#134e4a">2 replicas</text>
 </g>
 <!-- varnish&#45;&gt;web -->

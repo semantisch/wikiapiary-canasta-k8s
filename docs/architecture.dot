@@ -97,7 +97,7 @@ digraph wikiapiary {
       color="#ca8a04",
       fontcolor="#713f12"
     ];
-    web [label="MediaWiki\n2 replicas"];
+    web [label="MediaWiki (Canasta)\n2 replicas"];
     state [
       label="Application state\nMariaDB • Redis • Elasticsearch\nNFS • RWX volumes",
       group="state-column",
