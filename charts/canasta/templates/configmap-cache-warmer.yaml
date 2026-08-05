@@ -523,6 +523,11 @@ data:
                     'method' => $method,
                     'timeout' => $timeout,
                     'ignore_errors' => true,
+                    // Warm only the selected Varnish object. Following an
+                    // application redirect would leave the cluster, depend on
+                    // public DNS, and warm a randomly load-balanced replica.
+                    'follow_location' => 0,
+                    'max_redirects' => 0,
                     'header' => implode("\r\n", array_merge([
                         'User-Agent: WikiApiaryCacheWarmer/1.0',
                         'Accept: text/html,application/xhtml+xml',
@@ -563,6 +568,93 @@ data:
             }
         }
         return $last;
+    }
+
+    function request_urls(array $requests, $timeout) {
+        if (!function_exists('curl_multi_init')) {
+            $results = [];
+            foreach ($requests as $index => $request) {
+                $results[$index] = request_url($request['url'], $timeout, 'GET', $request['headers']);
+            }
+            return $results;
+        }
+
+        $results = [];
+        $pending = array_keys($requests);
+        for ($attempt = 0; $attempt < 3 && $pending; $attempt++) {
+            $multi = curl_multi_init();
+            $handles = [];
+            $headerBuffers = [];
+            foreach ($pending as $index) {
+                $request = $requests[$index];
+                $headerBuffers[$index] = [];
+                $handle = curl_init($request['url']);
+                curl_setopt_array($handle, [
+                    CURLOPT_HTTPGET => true,
+                    CURLOPT_FOLLOWLOCATION => false,
+                    CURLOPT_MAXREDIRS => 0,
+                    CURLOPT_CONNECTTIMEOUT => min(3, $timeout),
+                    CURLOPT_TIMEOUT => $timeout,
+                    CURLOPT_NOSIGNAL => true,
+                    CURLOPT_HTTPHEADER => array_merge([
+                        'User-Agent: WikiApiaryCacheWarmer/1.0',
+                        'Accept: text/html,application/xhtml+xml',
+                        'Accept-Language: en'
+                    ], $request['headers']),
+                    CURLOPT_HEADERFUNCTION => function ($curl, $line) use (&$headerBuffers, $index) {
+                        $headerBuffers[$index][] = rtrim($line, "\r\n");
+                        return strlen($line);
+                    },
+                    CURLOPT_WRITEFUNCTION => function ($curl, $data) {
+                        return strlen($data);
+                    },
+                ]);
+                $handles[$index] = $handle;
+                curl_multi_add_handle($multi, $handle);
+            }
+
+            do {
+                $status = curl_multi_exec($multi, $running);
+                if ($running > 0) {
+                    $selected = curl_multi_select($multi, 1.0);
+                    if ($selected === -1) {
+                        usleep(10000);
+                    }
+                }
+            } while ($running > 0 && $status === CURLM_OK);
+
+            $nextPending = [];
+            foreach ($handles as $index => $handle) {
+                $headers = parse_response_headers($headerBuffers[$index]);
+                $age = null;
+                if (!empty($headers['age'][0]) && ctype_digit((string)$headers['age'][0])) {
+                    $age = (int)$headers['age'][0];
+                }
+                $responseStatus = (int)curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
+                $ok = curl_errno($handle) === 0 && $responseStatus >= 200 && $responseStatus < 400;
+                $results[$index] = [
+                    'url' => $requests[$index]['url'],
+                    'status' => $responseStatus,
+                    'ok' => $ok,
+                    'seconds' => round((float)curl_getinfo($handle, CURLINFO_TOTAL_TIME), 3),
+                    'age' => $age,
+                    'via' => $headers['via'] ?? [],
+                    'cacheControl' => $headers['cache-control'][0] ?? null,
+                ];
+                if (!$ok) {
+                    $nextPending[] = $index;
+                }
+                curl_multi_remove_handle($multi, $handle);
+                curl_close($handle);
+            }
+            curl_multi_close($multi);
+            $pending = $nextPending;
+            if ($pending && $attempt < 2) {
+                usleep(200000);
+            }
+        }
+        ksort($results);
+        return $results;
     }
 
     function expand_base_targets($baseUrl, $fanoutHost) {
@@ -660,16 +752,28 @@ data:
     foreach ($targets as $path) {
         $targetResults = [];
         $allOk = true;
+        $requests = [];
+        $metadata = [];
         foreach ($warmHeaderSets as $headerSet) {
             foreach ($warmTargets as $base) {
-                $refresh = request_url($base . $path, $requestTimeout, 'GET', $headerSet['headers']);
-                $targetResults[] = array_merge([
+                $requests[] = [
+                    'url' => $base . $path,
+                    'headers' => $headerSet['headers'],
+                ];
+                $metadata[] = [
                     'base' => $base,
                     'host' => $headerSet['host'],
-                ], $refresh);
-                if (empty($refresh['ok'])) {
-                    $allOk = false;
-                }
+                ];
+            }
+        }
+        foreach (request_urls($requests, $requestTimeout) as $index => $refresh) {
+            $target = $metadata[$index];
+            $targetResults[] = array_merge([
+                'base' => $target['base'],
+                'host' => $target['host'],
+            ], $refresh);
+            if (empty($refresh['ok'])) {
+                $allOk = false;
             }
         }
         $primary = $targetResults[0] ?? ['status' => 0, 'cacheControl' => null, 'seconds' => null, 'age' => null];
@@ -689,6 +793,9 @@ data:
             'seconds' => $primary['seconds'] ?? null,
             'ageAfter' => $primary['age'] ?? null
         ];
+        if ((count($results) % 10) === 0) {
+            echo "warm-progress=" . count($results) . " total=" . count($targets) . PHP_EOL;
+        }
         usleep(150000);
     }
 
@@ -863,6 +970,10 @@ data:
                     'method' => 'GET',
                     'timeout' => $timeout,
                     'ignore_errors' => true,
+                    // Do not follow canonical redirects through the public
+                    // load balancer; this request targets one cache replica.
+                    'follow_location' => 0,
+                    'max_redirects' => 0,
                     'header' => implode("\r\n", array_merge([
                         'User-Agent: WikiApiaryPriorityWarmer/1.0',
                         'Accept: text/html,application/xhtml+xml',
@@ -904,6 +1015,94 @@ data:
             }
         }
         return $last;
+    }
+
+    function request_urls(array $requests, $timeout) {
+        if (!function_exists('curl_multi_init')) {
+            $results = [];
+            foreach ($requests as $index => $request) {
+                $results[$index] = request_url($request['url'], $timeout, $request['headers']);
+            }
+            return $results;
+        }
+
+        $results = [];
+        $pending = array_keys($requests);
+        for ($attempt = 0; $attempt < 3 && $pending; $attempt++) {
+            $multi = curl_multi_init();
+            $handles = [];
+            $headerBuffers = [];
+            foreach ($pending as $index) {
+                $request = $requests[$index];
+                $headerBuffers[$index] = [];
+                $handle = curl_init($request['url']);
+                curl_setopt_array($handle, [
+                    CURLOPT_HTTPGET => true,
+                    CURLOPT_FOLLOWLOCATION => false,
+                    CURLOPT_MAXREDIRS => 0,
+                    CURLOPT_CONNECTTIMEOUT => min(3, $timeout),
+                    CURLOPT_TIMEOUT => $timeout,
+                    CURLOPT_NOSIGNAL => true,
+                    CURLOPT_HTTPHEADER => array_merge([
+                        'User-Agent: WikiApiaryPriorityWarmer/1.0',
+                        'Accept: text/html,application/xhtml+xml',
+                        'Accept-Language: en'
+                    ], $request['headers']),
+                    CURLOPT_HEADERFUNCTION => function ($curl, $line) use (&$headerBuffers, $index) {
+                        $headerBuffers[$index][] = rtrim($line, "\r\n");
+                        return strlen($line);
+                    },
+                    CURLOPT_WRITEFUNCTION => function ($curl, $data) {
+                        return strlen($data);
+                    },
+                ]);
+                $handles[$index] = $handle;
+                curl_multi_add_handle($multi, $handle);
+            }
+
+            do {
+                $status = curl_multi_exec($multi, $running);
+                if ($running > 0) {
+                    $selected = curl_multi_select($multi, 1.0);
+                    if ($selected === -1) {
+                        usleep(10000);
+                    }
+                }
+            } while ($running > 0 && $status === CURLM_OK);
+
+            $nextPending = [];
+            foreach ($handles as $index => $handle) {
+                $headers = parse_response_headers($headerBuffers[$index]);
+                $age = null;
+                if (!empty($headers['age'][0]) && ctype_digit((string)$headers['age'][0])) {
+                    $age = (int)$headers['age'][0];
+                }
+                $responseStatus = (int)curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
+                $ok = curl_errno($handle) === 0 && $responseStatus >= 200 && $responseStatus < 400;
+                $results[$index] = [
+                    'url' => $requests[$index]['url'],
+                    'status' => $responseStatus,
+                    'ok' => $ok,
+                    'seconds' => round((float)curl_getinfo($handle, CURLINFO_TOTAL_TIME), 3),
+                    'age' => $age,
+                    'via' => $headers['via'] ?? [],
+                    'cacheControl' => $headers['cache-control'][0] ?? null,
+                    'cache' => $headers['x-wikiapiary-cache'][0] ?? null,
+                ];
+                if (!$ok) {
+                    $nextPending[] = $index;
+                }
+                curl_multi_remove_handle($multi, $handle);
+                curl_close($handle);
+            }
+            curl_multi_close($multi);
+            $pending = $nextPending;
+            if ($pending && $attempt < 2) {
+                usleep(200000);
+            }
+        }
+        ksort($results);
+        return $results;
     }
 
     function expand_base_targets($baseUrl, $fanoutHost) {
@@ -979,29 +1178,50 @@ data:
         $targetResults = [];
         $allOk = true;
         $uncacheableResponses = 0;
+        $requests = [];
+        $metadata = [];
         foreach ($warmHeaderSets as $headerSet) {
             foreach ($warmTargets as $base) {
-                $refresh = request_url($base . $path, $requestTimeout, $headerSet['headers']);
-                if (!empty($refresh['ok']) && (($refresh['cache'] ?? '') !== 'HIT' || ($refresh['age'] ?? null) === null)) {
-                    usleep(100000);
-                    $retry = request_url($base . $path, $requestTimeout, $headerSet['headers']);
-                    if (!empty($retry['ok'])) {
-                        $refresh = $retry;
-                    }
-                }
-                $targetResults[] = array_merge([
+                $requests[] = [
+                    'url' => $base . $path,
+                    'headers' => $headerSet['headers'],
+                ];
+                $metadata[] = [
                     'base' => $base,
                     'host' => $headerSet['host'],
-                ], $refresh);
-                $cacheControl = strtolower((string)($refresh['cacheControl'] ?? ''));
-                $isUncacheableResponse = ($refresh['status'] ?? 0) === 404
-                    || strpos($cacheControl, 'no-store') !== false
-                    || strpos($cacheControl, 'private') !== false;
-                if ($isUncacheableResponse) {
-                    $uncacheableResponses++;
-                } elseif (empty($refresh['ok']) || ($refresh['cache'] ?? '') !== 'HIT' || ($refresh['age'] ?? null) === null) {
-                    $allOk = false;
+                ];
+            }
+        }
+        $responses = request_urls($requests, $requestTimeout);
+        $retryRequests = [];
+        foreach ($responses as $index => $refresh) {
+            if (!empty($refresh['ok']) && (($refresh['cache'] ?? '') !== 'HIT' || ($refresh['age'] ?? null) === null)) {
+                $retryRequests[$index] = $requests[$index];
+            }
+        }
+        if ($retryRequests) {
+            usleep(100000);
+            foreach (request_urls($retryRequests, $requestTimeout) as $index => $retry) {
+                if (!empty($retry['ok'])) {
+                    $responses[$index] = $retry;
                 }
+            }
+        }
+        ksort($responses);
+        foreach ($responses as $index => $refresh) {
+            $target = $metadata[$index];
+            $targetResults[] = array_merge([
+                'base' => $target['base'],
+                'host' => $target['host'],
+            ], $refresh);
+            $cacheControl = strtolower((string)($refresh['cacheControl'] ?? ''));
+            $isUncacheableResponse = ($refresh['status'] ?? 0) === 404
+                || strpos($cacheControl, 'no-store') !== false
+                || strpos($cacheControl, 'private') !== false;
+            if ($isUncacheableResponse) {
+                $uncacheableResponses++;
+            } elseif (empty($refresh['ok']) || ($refresh['cache'] ?? '') !== 'HIT' || ($refresh['age'] ?? null) === null) {
+                $allOk = false;
             }
         }
         $expectedResponses = count($warmTargets) * count($warmHeaderSets);
@@ -1023,6 +1243,9 @@ data:
             'seconds' => $primary['seconds'] ?? null,
             'ageAfter' => $primary['age'] ?? null
         ];
+        if ((count($results) % 10) === 0) {
+            echo "priority-progress=" . count($results) . " total=" . count($targets) . PHP_EOL;
+        }
         usleep(100000);
     }
 
@@ -1157,6 +1380,9 @@ data:
                     'method' => 'GET',
                     'timeout' => $timeout,
                     'ignore_errors' => true,
+                    // Keep rewarming inside the selected Varnish replica.
+                    'follow_location' => 0,
+                    'max_redirects' => 0,
                     'header' => implode("\r\n", array_merge([
                         'User-Agent: WikiApiaryRewarmWorker/1.0',
                         'Accept: text/html,application/xhtml+xml',
