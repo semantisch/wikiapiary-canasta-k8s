@@ -123,6 +123,15 @@ sub vcl_recv {
     return (hash);
 }
 
+# Canasta's farm selector only knows the canonical wiki hostname. Keep the
+# original allowlisted Host on the client-side request (and therefore in
+# Varnish's built-in cache key), but route backend fetches to the same Canasta
+# wiki while carrying the requested mirror hostname in a trusted header.
+sub vcl_backend_fetch {
+    set bereq.http.X-WikiApiary-Request-Host = bereq.http.Host;
+    set bereq.http.Host = "__PRIMARY_HOST__";
+}
+
 sub vcl_pipe {
         # Note that only the first request to the backend will have
         # X-Forwarded-For set.  If you use X-Forwarded-For and want to
@@ -154,8 +163,9 @@ sub vcl_pass {
 
 # Called after a document has been successfully retrieved from the backend.
 sub vcl_backend_response {
-        # Don't cache 50x responses
-        if (beresp.status == 500 || beresp.status == 502 || beresp.status == 503 || beresp.status == 504) {
+        # Never retain error pages. In particular, a transient farm-routing 404
+        # must not remain visible after routing is repaired.
+        if (beresp.status >= 400) {
             set beresp.uncacheable = true;
             return (deliver);
         }
