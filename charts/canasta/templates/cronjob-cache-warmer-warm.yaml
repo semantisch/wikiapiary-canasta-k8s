@@ -45,6 +45,8 @@ spec:
                   value: "{{ .Values.cacheWarmer.warmFanoutHost }}"
                 - name: WARM_HOST_HEADER
                   value: {{ include "canasta.primaryHost" . | quote }}
+                - name: WARM_HOST_HEADERS
+                  value: {{ include "canasta.hostsCsv" . | quote }}
                 - name: WARM_CACHE_DIR
                   value: /warm-cache
                 - name: PRIORITY_HOT_PAGES_LIMIT
@@ -120,6 +122,8 @@ spec:
                   value: "{{ .Values.cacheWarmer.warmFanoutHost }}"
                 - name: WARM_HOST_HEADER
                   value: {{ include "canasta.primaryHost" . | quote }}
+                - name: WARM_HOST_HEADERS
+                  value: {{ include "canasta.hostsCsv" . | quote }}
                 - name: WARM_CACHE_DIR
                   value: /warm-cache
                 - name: RECENT_CHANGES_LIMIT

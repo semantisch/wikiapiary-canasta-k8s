@@ -180,6 +180,7 @@ def validate(rendered_path: Path) -> None:
                 "WARM_BASE_URL": base_url,
                 "WARM_FANOUT_HOST": "",
                 "WARM_HOST_HEADER": "primary.example.test",
+                "WARM_HOST_HEADERS": "primary.example.test,mirror.example.test",
                 "DISCOVER_BASE_URL": base_url,
                 "DISCOVER_HOST_HEADER": "primary.example.test",
                 "ACCESS_LOG_FILE": str(cache_dir / "access.log"),
@@ -206,7 +207,16 @@ def validate(rendered_path: Path) -> None:
             run_checked(["php", str(script_dir / "discover.php")], env=common_env)
 
             run_checked(["php", str(script_dir / "warm.php")], env=common_env)
-            assert_successful_report(cache_dir / "warm-run.json")
+            warm_report = assert_successful_report(cache_dir / "warm-run.json")
+            expected_hosts = {"primary.example.test", "mirror.example.test"}
+            for result in warm_report.get("results", []):
+                warmed_hosts = {
+                    target.get("host") for target in result.get("targetResults", [])
+                }
+                if warmed_hosts != expected_hosts:
+                    raise RuntimeError(
+                        f"cache target did not warm every mirror: {warmed_hosts!r}"
+                    )
 
             write_json(
                 cache_dir / "seed-pages.json",

@@ -110,12 +110,12 @@ def validate_site_values(values: dict[str, Any]) -> tuple[str, list[str], list[s
             f"ingress.edge.tlsHosts must be unique: {configured_tls_hosts!r}"
         )
 
-    # Edge TLS hosts double as retained routing aliases. This lets a future
-    # primaryHost-only change add the new canonical host automatically while
-    # keeping the former primary hostname reachable and certificate-covered.
+    # Mirrors are routed and certificate-covered automatically. Explicit edge
+    # TLS hosts double as retained routing aliases, so a primaryHost-only
+    # cutover keeps the former canonical hostname reachable.
     hosts = list(dict.fromkeys([*site_hosts, *configured_tls_hosts]))
     tls_hosts = (
-        list(dict.fromkeys([primary, *configured_tls_hosts]))
+        list(dict.fromkeys([*site_hosts, *configured_tls_hosts]))
         if edge.get("tls")
         else []
     )
@@ -129,6 +129,10 @@ def validate_site_values(values: dict[str, Any]) -> tuple[str, list[str], list[s
             web.get("settings--global--00LegacySite.php", ""),
             "__SITE_SERVER__",
         ),
+        "configData.web.settings--global--00LegacySite.php accepted hosts": (
+            web.get("settings--global--00LegacySite.php", ""),
+            "__SITE_HOSTS_CSV__",
+        ),
         "configData.web.settings--global--04LegacyExtensions.php": (
             web.get("settings--global--04LegacyExtensions.php", ""),
             "__PRIMARY_HOST__",
@@ -140,10 +144,6 @@ def validate_site_values(values: dict[str, Any]) -> tuple[str, list[str], list[s
         "configData.caddy.Caddyfile listeners": (
             caddy.get("Caddyfile", ""),
             "__CADDY_SITE_ADDRESSES__",
-        ),
-        "configData.caddy.Caddyfile upstream host": (
-            caddy.get("Caddyfile", ""),
-            "__PRIMARY_HOST__",
         ),
     }
     missing = [name for name, (content, marker) in required_markers.items() if marker not in content]
@@ -185,7 +185,12 @@ def validate_rendered(
 ) -> None:
     unresolved = [
         marker
-        for marker in ("__PRIMARY_HOST__", "__SITE_SERVER__", "__CADDY_SITE_ADDRESSES__")
+        for marker in (
+            "__PRIMARY_HOST__",
+            "__SITE_SERVER__",
+            "__SITE_HOSTS_CSV__",
+            "__CADDY_SITE_ADDRESSES__",
+        )
         if any(marker in str(document) for document in documents)
     ]
     if unresolved:
@@ -201,6 +206,19 @@ def validate_rendered(
             name = ingress["metadata"]["name"]
             raise RuntimeError(f"Ingress/{name} hosts {actual_hosts!r} != {expected_hosts!r}")
 
+    internal = next(
+        ingress
+        for ingress in ingresses
+        if ingress["metadata"].get("namespace") != "bunkerweb"
+    )
+    if internal["metadata"].get("annotations", {}).get(
+        "bunkerweb.io/USE_LIMIT_CONN"
+    ) != "no":
+        raise RuntimeError(
+            "production must disable per-IP BunkerWeb connection limiting "
+            "while the upstream load balancer presents a shared source IP"
+        )
+
     edge = next(
         ingress for ingress in ingresses if ingress["metadata"].get("namespace") == "bunkerweb"
     )
@@ -215,13 +233,37 @@ def validate_rendered(
         )
 
     server = f"http://{primary}" if primary == "localhost" else f"https://{primary}"
+    hosts_csv = ",".join(hosts)
     for component in ("web", "jobrunner"):
         deployment = find_one(documents, "Deployment", f"-{component}")
         env = container_env(deployment, component)
-        expected = {"MW_SITE_SERVER": server, "MW_SITE_FQDN": primary}
+        expected = {
+            "MW_SITE_SERVER": server,
+            "MW_SITE_FQDN": primary,
+            "MW_SITE_HOSTS": hosts_csv,
+        }
         actual = {name: env.get(name) for name in expected}
         if actual != expected:
             raise RuntimeError(f"{component} site environment {actual!r} != {expected!r}")
+
+    varnish = find_one(documents, "Deployment", "-varnish")
+    varnish_env = container_env(varnish, "varnish")
+    if varnish_env.get("VARNISH_SIZE") != "4G":
+        raise RuntimeError(
+            f"production Varnish cache is not 4G: {varnish_env.get('VARNISH_SIZE')!r}"
+        )
+    varnish_container = next(
+        container
+        for container in varnish["spec"]["template"]["spec"]["containers"]
+        if container.get("name") == "varnish"
+    )
+    varnish_resources = varnish_container.get("resources", {})
+    if varnish_resources.get("requests", {}).get("memory") != "4Gi" or (
+        varnish_resources.get("limits", {}).get("memory") != "5Gi"
+    ):
+        raise RuntimeError(
+            f"Varnish memory does not safely contain its 4G cache: {varnish_resources!r}"
+        )
 
     web_config = find_one(documents, "ConfigMap", "-web-config").get("data", {})
     caddy_config = find_one(documents, "ConfigMap", "-caddy-config").get("data", {})
@@ -231,13 +273,13 @@ def validate_rendered(
             web_config.get("settings--global--00LegacySite.php", ""),
             f"?: '{server}'",
         ),
+        "MediaWiki accepted hosts": (
+            web_config.get("settings--global--00LegacySite.php", ""),
+            f"?: '{hosts_csv}'",
+        ),
         "Semantic MediaWiki host": (
             web_config.get("settings--global--04LegacyExtensions.php", ""),
             f"?: '{primary}'",
-        ),
-        "Caddy primary upstream host": (
-            caddy_config.get("Caddyfile", ""),
-            f"header_up Host {primary}",
         ),
     }
     caddyfile = caddy_config.get("Caddyfile", "")
@@ -246,6 +288,8 @@ def validate_rendered(
     failed = [name for name, (content, expected) in checks.items() if expected not in content]
     if failed:
         raise RuntimeError(f"rendered hostname checks failed: {', '.join(failed)}")
+    if "header_up Host" in caddyfile:
+        raise RuntimeError("Caddy must preserve each accepted request Host")
 
     cronjobs = [document for document in documents if document.get("kind") == "CronJob"]
     suspended = [job["metadata"]["name"] for job in cronjobs if job["spec"].get("suspend")]
@@ -277,8 +321,12 @@ def render_cutover(
     tls_hosts: list[str],
     current_documents: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    cutover_hosts = list(dict.fromkeys([CUTOVER_HOST, *hosts]))
-    cutover_tls_hosts = list(dict.fromkeys([CUTOVER_HOST, *tls_hosts]))
+    # The helper orders the new primary first, then site mirrors, then retained
+    # TLS aliases (including the former primary).
+    cutover_hosts = list(dict.fromkeys([CUTOVER_HOST, *hosts[1:], hosts[0]]))
+    cutover_tls_hosts = list(
+        dict.fromkeys([CUTOVER_HOST, *tls_hosts[1:], tls_hosts[0]])
+    )
     command = [
         "helm",
         "template",
@@ -307,6 +355,19 @@ def render_cutover(
     )
     if not current_checksum or current_checksum == cutover_checksum:
         raise RuntimeError("hostname cutover must change the Caddy pod checksum")
+    for component in ("web", "jobrunner"):
+        current_workload = find_one(current_documents, "Deployment", f"-{component}")
+        cutover_workload = find_one(documents, "Deployment", f"-{component}")
+        current_site_checksum = current_workload["spec"]["template"]["metadata"][
+            "annotations"
+        ].get("checksum/site-hosts")
+        cutover_site_checksum = cutover_workload["spec"]["template"]["metadata"][
+            "annotations"
+        ].get("checksum/site-hosts")
+        if not current_site_checksum or current_site_checksum == cutover_site_checksum:
+            raise RuntimeError(
+                f"hostname cutover must change the {component} site-host checksum"
+            )
     return documents
 
 

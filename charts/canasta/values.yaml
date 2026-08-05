@@ -10,8 +10,8 @@ image:
   tag: ""               # defaults to chart appVersion if empty
   pullPolicy: IfNotPresent
 
-# Public site identity. primaryHost drives MediaWiki, Caddy, cache warming,
-# ingress routing, and edge TLS. additionalHosts are accepted non-TLS aliases.
+# Public site identity. primaryHost drives canonical application identity.
+# additionalHosts are independent routed, certificate-covered mirrors.
 site:
   primaryHost: localhost
   additionalHosts: []
@@ -51,6 +51,7 @@ caddy:
 varnish:
   enabled: true
   image: varnish:7.0.2-alpine
+  storageSize: 100M
   replicaCount: 1
   spreadAcrossNodes: false
   nodeSelector: {}
@@ -201,7 +202,7 @@ ingress:
     backendServicePortName: http
     tls: true
     # Additional certificate hosts retained as routed aliases after a canonical
-    # hostname change. site.primaryHost is always added automatically.
+    # hostname change. The primary host and mirrors are added automatically.
     tlsHosts: []
     tlsSecretName: ""
     annotations: {}
