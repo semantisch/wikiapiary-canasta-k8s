@@ -8,8 +8,11 @@ metadata:
     {{- include "canasta.labels" . | nindent 4 }}
     app.kubernetes.io/component: caddy
 data:
+  {{- $primaryHost := include "canasta.primaryHost" . }}
+  {{- $siteServer := include "canasta.siteServer" . }}
+  {{- $siteAddresses := include "canasta.caddySiteAddresses" . }}
   {{- range $key, $value := .Values.configData.caddy }}
   {{ $key }}: |
-    {{- $value | nindent 4 }}
+    {{- $value | replace "__PRIMARY_HOST__" $primaryHost | replace "__SITE_SERVER__" $siteServer | replace "__CADDY_SITE_ADDRESSES__" $siteAddresses | nindent 4 }}
   {{- end }}
 {{- end }}

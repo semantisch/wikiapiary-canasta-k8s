@@ -18,7 +18,7 @@ spec:
         {{- include "canasta.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: caddy
       annotations:
-        checksum/caddy-config: {{ .Values.configData.caddy | toJson | sha256sum }}
+        checksum/caddy-config: {{ dict "config" .Values.configData.caddy "site" .Values.site | toJson | sha256sum }}
     spec:
       {{- $nodeSelector := .Values.caddy.nodeSelector | default .Values.nodeSelector }}
       {{- with $nodeSelector }}

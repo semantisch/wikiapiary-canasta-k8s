@@ -6,9 +6,12 @@ image:
   tag: "20260501-foreground"
   pullPolicy: IfNotPresent
 
-domains:
-  - wikiapiary.dobriy.ai
-  - dev.wikiapiary.com
+site:
+  # Change this only after the new hostname resolves to the edge load balancer
+  # and is included in ingress.edge.tlsHosts. See docs/hostname-cutover.md.
+  primaryHost: wikiapiary.dobriy.ai
+  additionalHosts:
+    - dev.wikiapiary.com
 
 nodeSelector: {}
 
@@ -253,8 +256,6 @@ configData:
       HTTP_PORT=80
       HTTPS_PORT=443
       MYSQL_PASSWORD=
-      MW_SITE_SERVER=https://wikiapiary.dobriy.ai
-      MW_SITE_FQDN=wikiapiary.dobriy.ai
       CADDY_AUTO_HTTPS=off
       PHP_UPLOAD_MAX_FILESIZE=100M
       PHP_POST_MAX_SIZE=100M
@@ -280,7 +281,7 @@ configData:
     wikis.yaml: |
       wikis:
         - id: main
-          url: wikiapiary.dobriy.ai
+          url: __PRIMARY_HOST__
           name: WikiApiary
     settings--global--00LegacySite.php: |
       <?php
@@ -288,7 +289,7 @@ configData:
       $wgUsePathInfo = true;
       $wgScriptPath = "/w";
       $wgArticlePath = "/wiki/$1";
-      $wgServer = "https://wikiapiary.dobriy.ai";
+      $wgServer = getenv( 'MW_SITE_SERVER' ) ?: '__SITE_SERVER__';
       $wgLogos = [
           '1x' => "/w/images/wikiapiary/thumb/5/5e/WikiApiary_Bee.png/128px-WikiApiary_Bee.png",
           'icon' => "/w/images/wikiapiary/thumb/5/5e/WikiApiary_Bee.png/128px-WikiApiary_Bee.png",
@@ -370,7 +371,7 @@ configData:
       if ( $smtpHost !== '' ) {
           $wgSMTP = [
               'host' => $smtpHost,
-              'IDHost' => getenv( 'MW_SMTP_IDHOST' ) ?: ( parse_url( $wgServer, PHP_URL_HOST ) ?: 'wikiapiary.dobriy.ai' ),
+              'IDHost' => getenv( 'MW_SMTP_IDHOST' ) ?: ( parse_url( $wgServer, PHP_URL_HOST ) ?: '__PRIMARY_HOST__' ),
               'port' => (int)( getenv( 'MW_SMTP_PORT' ) ?: '25' ),
               'auth' => filter_var( getenv( 'MW_SMTP_AUTH' ) ?: 'true', FILTER_VALIDATE_BOOLEAN ),
               'username' => getenv( 'MW_SMTP_USERNAME' ) ?: null,
@@ -515,7 +516,7 @@ configData:
       $edgDBName['apiary'] = "apiary";
       $edgDBUser['apiary'] = "apiary";
       $edgDBPass['apiary'] = getenv( 'MYSQL_PASSWORD' ) ?: '';
-      enableSemantics( 'wikiapiary.dobriy.ai' );
+      enableSemantics( getenv( 'MW_SITE_FQDN' ) ?: '__PRIMARY_HOST__' );
       $smwgCheckForConstraintErrors = SMW_CONSTRAINT_ERR_CHECK_NONE;
       $smwgQEqualitySupport = SMW_EQ_NONE;
       $smwgNamespacesWithSemanticLinks[NS_EXTENSION] = true;
@@ -553,7 +554,7 @@ configData:
       $htEditTabLink = false;
     settings--global--05Footer.php: |
       <?php
-      $myWikiApiaryURL = "https://wikiapiary.dobriy.ai/wiki/WikiApiary";
+      $myWikiApiaryURL = rtrim( getenv( 'MW_SITE_SERVER' ) ?: '__SITE_SERVER__', '/' ) . "/wiki/WikiApiary";
       unset( $wgFooterIcons['poweredbysmw'] );
       $wgFooterIcons['monitoredby']['wikiapiary'] = [
           'src' => '/w/images/wikiapiary/b/b4/Monitored_by_WikiApiary.png',
@@ -807,10 +808,10 @@ configData:
     Caddyfile: |
       import /etc/caddy/Caddyfile.global
 
-      http://wikiapiary.dobriy.ai, http://dev.wikiapiary.com {
+      __CADDY_SITE_ADDRESSES__ {
           import /etc/caddy/Caddyfile.site
           reverse_proxy varnish:80 {
-              header_up Host wikiapiary.dobriy.ai
+              header_up Host __PRIMARY_HOST__
               lb_retries 2
               lb_try_duration 5s
               fail_duration 30s

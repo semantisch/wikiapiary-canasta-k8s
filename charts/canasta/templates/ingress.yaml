@@ -3,7 +3,7 @@
 {{- $fullname := include "canasta.fullname" . }}
 {{- $tlsHosts := dict }}
 {{- $ruleHosts := dict }}
-{{- range .Values.domains }}
+{{- range (include "canasta.hosts" . | fromJsonArray) }}
 {{- $domain := regexReplaceAll ":[0-9]+$" (regexReplaceAll "/.*$" . "") "" }}
 {{- $_ := set $ruleHosts $domain true }}
 {{- if ne $domain "localhost" }}

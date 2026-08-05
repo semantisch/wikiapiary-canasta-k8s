@@ -1,0 +1,42 @@
+name: Production
+
+on:
+  workflow_run:
+    workflows:
+      - Validate
+    types:
+      - completed
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Observe GitOps deployment
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - name: Check out validated revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      - name: Install smoke-test dependencies
+        run: python3 -m pip install --disable-pip-version-check --requirement requirements-ci.txt
+
+      - name: Wait for the configured production host
+        run: python3 scripts/smoke-production.py --values values/prod.yaml

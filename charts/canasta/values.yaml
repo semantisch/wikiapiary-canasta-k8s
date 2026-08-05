@@ -10,10 +10,11 @@ image:
   tag: ""               # defaults to chart appVersion if empty
   pullPolicy: IfNotPresent
 
-# Domains for ingress routing (all domains used by wikis in this instance)
-# Wiki farm config (wiki IDs, paths, names) lives in wikis.yaml on the config PVC.
-domains:
-  - localhost
+# Public site identity. primaryHost drives MediaWiki, Caddy, cache warming, and
+# ingress routing. additionalHosts are accepted aliases during migrations.
+site:
+  primaryHost: localhost
+  additionalHosts: []
 
 # Pod placement
 nodeSelector: {}

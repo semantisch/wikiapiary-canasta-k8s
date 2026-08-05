@@ -174,14 +174,14 @@ def validate(rendered_path: Path) -> None:
         common_env = os.environ.copy()
         common_env.update(
             {
-                "SITE_SERVER": "https://wikiapiary.dobriy.ai",
-                "SITE_HOST": "wikiapiary.dobriy.ai",
+                "SITE_SERVER": "https://primary.example.test",
+                "SITE_HOST": "primary.example.test",
                 "WARM_CACHE_DIR": str(cache_dir),
                 "WARM_BASE_URL": base_url,
                 "WARM_FANOUT_HOST": "",
-                "WARM_HOST_HEADER": "wikiapiary.dobriy.ai",
+                "WARM_HOST_HEADER": "primary.example.test",
                 "DISCOVER_BASE_URL": base_url,
-                "DISCOVER_HOST_HEADER": "wikiapiary.dobriy.ai",
+                "DISCOVER_HOST_HEADER": "primary.example.test",
                 "ACCESS_LOG_FILE": str(cache_dir / "access.log"),
                 "REQUEST_TIMEOUT_SECONDS": "3",
             }
@@ -193,7 +193,7 @@ def validate(rendered_path: Path) -> None:
                     {
                         "status": 200,
                         "request": {
-                            "host": "wikiapiary.dobriy.ai",
+                            "host": "primary.example.test",
                             "method": "GET",
                             "uri": "/wiki/Hot_Page",
                             "headers": {"User-Agent": ["Cache validator"]},

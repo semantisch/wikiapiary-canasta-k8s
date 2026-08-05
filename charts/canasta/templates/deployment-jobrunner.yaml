@@ -84,6 +84,10 @@ spec:
                 optional: true
             {{- end }}
           env:
+            - name: MW_SITE_SERVER
+              value: {{ include "canasta.siteServer" . | quote }}
+            - name: MW_SITE_FQDN
+              value: {{ include "canasta.primaryHost" . | quote }}
             - name: MYSQL_HOST
               value: {{ if .Values.db.hostOverride }}{{ .Values.db.hostOverride | quote }}{{ else if .Values.db.enabled }}"db"{{ else }}"{{ .Values.externalDatabase.host }}"{{ end }}
             - name: MYSQL_PORT

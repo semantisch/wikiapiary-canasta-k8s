@@ -1,0 +1,7 @@
+* @semantisch
+
+# Production and supply-chain paths always require maintainer review.
+/.github/workflows/ @semantisch
+/argocd/ @semantisch
+/charts/canasta/templates/ @semantisch
+/values/prod.yaml @semantisch

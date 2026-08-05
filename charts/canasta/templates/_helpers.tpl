@@ -10,6 +10,46 @@ Create a default fully qualified app name.
 {{- end }}
 
 {{/*
+Primary public hostname. This is the single source of truth for MediaWiki,
+Caddy, cache warming, and ingress-facing application identity.
+*/}}
+{{- define "canasta.primaryHost" -}}
+{{- required "site.primaryHost must be configured" .Values.site.primaryHost -}}
+{{- end }}
+
+{{/*
+All accepted public hostnames, encoded as JSON so callers can recover a list
+with fromJsonArray.
+*/}}
+{{- define "canasta.hosts" -}}
+{{- $hosts := list (include "canasta.primaryHost" .) -}}
+{{- range (.Values.site.additionalHosts | default list) -}}
+{{- $hosts = append $hosts . -}}
+{{- end -}}
+{{- $hosts | toJson -}}
+{{- end }}
+
+{{/*
+Canonical public origin. Local chart users retain plain HTTP for localhost;
+deployed hostnames use HTTPS.
+*/}}
+{{- define "canasta.siteServer" -}}
+{{- $host := include "canasta.primaryHost" . -}}
+{{- printf "%s://%s" (ternary "http" "https" (eq $host "localhost")) $host -}}
+{{- end }}
+
+{{/*
+Caddy listener addresses for every accepted hostname.
+*/}}
+{{- define "canasta.caddySiteAddresses" -}}
+{{- $addresses := list -}}
+{{- range (include "canasta.hosts" . | fromJsonArray) -}}
+{{- $addresses = append $addresses (printf "http://%s" .) -}}
+{{- end -}}
+{{- join ", " $addresses -}}
+{{- end }}
+
+{{/*
 Namespace for this instance.
 */}}
 {{- define "canasta.namespace" -}}

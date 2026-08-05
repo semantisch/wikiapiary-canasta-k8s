@@ -1,5 +1,5 @@
-{{- if not .Values.domains }}
-  {{- fail "At least one domain must be configured in values.yaml (domains: [example.com])" }}
+{{- if not .Values.site.primaryHost }}
+  {{- fail "site.primaryHost must be configured in values.yaml" }}
 {{- end }}
 apiVersion: apps/v1
 kind: Deployment
@@ -137,12 +137,10 @@ spec:
                 optional: true
             {{- end }}
           env:
-            {{- if .Values.domains }}
             - name: MW_SITE_SERVER
-              value: "{{ ternary "http" "https" (eq (index .Values.domains 0) "localhost") }}://{{ index .Values.domains 0 }}"
+              value: {{ include "canasta.siteServer" . | quote }}
             - name: MW_SITE_FQDN
-              value: "{{ index .Values.domains 0 }}"
-            {{- end }}
+              value: {{ include "canasta.primaryHost" . | quote }}
             - name: MYSQL_HOST
               value: {{ if .Values.db.hostOverride }}{{ .Values.db.hostOverride | quote }}{{ else if .Values.db.enabled }}"db"{{ else }}"{{ .Values.externalDatabase.host }}"{{ end }}
             - name: MYSQL_PORT

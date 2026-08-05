@@ -33,15 +33,15 @@ spec:
           command: ["/bin/sh", "/scripts/run-worker.sh"]
           env:
             - name: SITE_SERVER
-              value: "https://{{ index .Values.domains 0 }}"
+              value: {{ include "canasta.siteServer" . | quote }}
             - name: SITE_HOST
-              value: "{{ index .Values.domains 0 }}"
+              value: {{ include "canasta.primaryHost" . | quote }}
             - name: WARM_BASE_URL
               value: "{{ .Values.cacheWarmer.requestBaseUrl }}"
             - name: WARM_FANOUT_HOST
               value: "{{ .Values.cacheWarmer.warmFanoutHost }}"
             - name: WARM_HOST_HEADER
-              value: "{{ index .Values.domains 0 }}"
+              value: {{ include "canasta.primaryHost" . | quote }}
             - name: WARM_CACHE_DIR
               value: /warm-cache
             - name: QUEUE_POLL_SECONDS
