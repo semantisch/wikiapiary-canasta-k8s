@@ -12,14 +12,6 @@ renders `charts/canasta` with `values/prod.yaml`, and reconciles namespace
 
 ![WikiApiary Kubernetes architecture](docs/architecture.svg)
 
-[Graphviz diagram source](docs/architecture.dot)
-
-Solid paths are live today. The purple dashed path marks the Crawler integration.
-The Crawler runs in the same cluster, is maintained in a separate repository, and
-reaches WikiApiary through an authenticated API boundary with no direct database
-or storage access. Cache discovery, priority warming, and the rewarm worker are
-part of this deployment and remain separate from the Crawler.
-
 ## Repository structure
 
 ```text
