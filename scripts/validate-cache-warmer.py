@@ -164,6 +164,11 @@ def validate(rendered_path: Path) -> None:
     if missing:
         raise RuntimeError(f"cache-warmer ConfigMap is missing: {sorted(missing)}")
 
+    for script_name in ("discover.php", "warm.php", "priority.php", "worker.php"):
+        script = scripts[script_name]
+        if "tempnam(dirname($path), basename($path) . '.tmp.')" not in script:
+            raise RuntimeError(f"{script_name} must use collision-safe atomic JSON writes")
+
     with tempfile.TemporaryDirectory(prefix="wikiapiary-cache-test-") as temporary:
         root = Path(temporary)
         script_dir = root / "scripts"

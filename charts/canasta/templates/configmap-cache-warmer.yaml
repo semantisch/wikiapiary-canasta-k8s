@@ -36,9 +36,15 @@ data:
     @mkdir($baseDir, 0775, true);
 
     function atomic_write_json($path, $data) {
-        $tmp = $path . '.tmp';
-        file_put_contents($tmp, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-        rename($tmp, $path);
+        $tmp = tempnam(dirname($path), basename($path) . '.tmp.');
+        if ($tmp === false) {
+            throw new RuntimeException("Unable to create a temporary file for {$path}");
+        }
+        $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+        if (file_put_contents($tmp, $json) === false || !rename($tmp, $path)) {
+            @unlink($tmp);
+            throw new RuntimeException("Unable to atomically replace {$path}");
+        }
     }
 
     function load_json($path, $default) {
@@ -446,9 +452,15 @@ data:
     }
 
     function atomic_write_json($path, $data) {
-        $tmp = $path . '.tmp';
-        file_put_contents($tmp, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-        rename($tmp, $path);
+        $tmp = tempnam(dirname($path), basename($path) . '.tmp.');
+        if ($tmp === false) {
+            throw new RuntimeException("Unable to create a temporary file for {$path}");
+        }
+        $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+        if (file_put_contents($tmp, $json) === false || !rename($tmp, $path)) {
+            @unlink($tmp);
+            throw new RuntimeException("Unable to atomically replace {$path}");
+        }
     }
 
     function wiki_path_from_title($title) {
@@ -905,9 +917,15 @@ data:
     }
 
     function atomic_write_json($path, $data) {
-        $tmp = $path . '.tmp';
-        file_put_contents($tmp, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-        rename($tmp, $path);
+        $tmp = tempnam(dirname($path), basename($path) . '.tmp.');
+        if ($tmp === false) {
+            throw new RuntimeException("Unable to create a temporary file for {$path}");
+        }
+        $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+        if (file_put_contents($tmp, $json) === false || !rename($tmp, $path)) {
+            @unlink($tmp);
+            throw new RuntimeException("Unable to atomically replace {$path}");
+        }
     }
 
     function eligible_warm_path($url) {
@@ -1356,9 +1374,15 @@ data:
     }
 
     function atomic_write_json($path, $data) {
-        $tmp = $path . '.tmp';
-        file_put_contents($tmp, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-        rename($tmp, $path);
+        $tmp = tempnam(dirname($path), basename($path) . '.tmp.');
+        if ($tmp === false) {
+            throw new RuntimeException("Unable to create a temporary file for {$path}");
+        }
+        $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+        if (file_put_contents($tmp, $json) === false || !rename($tmp, $path)) {
+            @unlink($tmp);
+            throw new RuntimeException("Unable to atomically replace {$path}");
+        }
     }
 
     function eligible_warm_path($url) {
