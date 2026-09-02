@@ -9,6 +9,13 @@ metadata:
     app.kubernetes.io/component: varnish
 spec:
   replicas: {{ .Values.varnish.replicaCount }}
+  {{- if .Values.varnish.spreadAcrossNodes }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 0
+  {{- end }}
   selector:
     matchLabels:
       {{- include "canasta.selectorLabels" . | nindent 6 }}
@@ -30,21 +37,19 @@ spec:
       topologySpreadConstraints:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname
-          whenUnsatisfiable: ScheduleAnyway
+          whenUnsatisfiable: DoNotSchedule
           labelSelector:
             matchLabels:
               {{- include "canasta.selectorLabels" . | nindent 14 }}
               app.kubernetes.io/component: varnish
       affinity:
         podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                topologyKey: kubernetes.io/hostname
-                labelSelector:
-                  matchLabels:
-                    {{- include "canasta.selectorLabels" . | nindent 20 }}
-                    app.kubernetes.io/component: varnish
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: kubernetes.io/hostname
+              labelSelector:
+                matchLabels:
+                  {{- include "canasta.selectorLabels" . | nindent 18 }}
+                  app.kubernetes.io/component: varnish
       {{- end }}
       containers:
         - name: varnish
