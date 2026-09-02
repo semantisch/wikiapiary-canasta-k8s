@@ -290,6 +290,9 @@ def validate_rendered(
     web_config = find_one(documents, "ConfigMap", "-web-config").get("data", {})
     caddy_config = find_one(documents, "ConfigMap", "-caddy-config").get("data", {})
     varnish_config = find_one(documents, "ConfigMap", "-varnish-config").get("data", {})
+    foreground_config = find_one(documents, "ConfigMap", "-foreground-modern").get("data", {})
+    foreground_css = foreground_config.get("wikiapiary-modern.css", "")
+    foreground_js = foreground_config.get("wikiapiary-modern.js", "")
     for name, content in web_config.items():
         if not name.endswith(".php"):
             continue
@@ -309,6 +312,51 @@ def validate_rendered(
                 f"rendered PHP setting {name} failed syntax validation:\n"
                 f"{lint.stdout}{lint.stderr}"
             )
+    with tempfile.NamedTemporaryFile(
+        mode="w+", suffix=".js", encoding="utf-8"
+    ) as js_file:
+        js_file.write(foreground_js)
+        js_file.flush()
+        lint = subprocess.run(
+            ["node", "--check", js_file.name],
+            check=False,
+            text=True,
+            capture_output=True,
+        )
+    if lint.returncode != 0:
+        raise RuntimeError(
+            "rendered Foreground enhancement JavaScript failed syntax validation:\n"
+            f"{lint.stdout}{lint.stderr}"
+        )
+
+    foreground_markers = {
+        "brand palette": "--wa-brand: #f5b700",
+        "Main Page translation notice removal": ".mw-pt-translate-header",
+        "Main Page stats card": "table tr:first-child th",
+        "keyboard focus": ":focus-visible",
+        "responsive layout": "@media only screen and (max-width: 40em)",
+    }
+    missing_foreground = [
+        name for name, marker in foreground_markers.items() if marker not in foreground_css
+    ]
+    if missing_foreground:
+        raise RuntimeError(
+            f"Foreground enhancement checks failed: {', '.join(missing_foreground)}"
+        )
+    if "aria-label" not in foreground_js or "aria-haspopup" not in foreground_js:
+        raise RuntimeError("Foreground navigation enhancement must retain accessible labels")
+
+    web_deployment = find_one(documents, "Deployment", "-web")
+    web_pod_spec = web_deployment["spec"]["template"]["spec"]
+    web_container = next(
+        container for container in web_pod_spec["containers"] if container.get("name") == "web"
+    )
+    mounted_subpaths = {
+        mount.get("subPath") for mount in web_container.get("volumeMounts", [])
+    }
+    required_foreground_mounts = {"wikiapiary-modern.css", "wikiapiary-modern.js"}
+    if not required_foreground_mounts.issubset(mounted_subpaths):
+        raise RuntimeError("web deployment does not mount both Foreground enhancement assets")
     checks = {
         "wikis.yaml primary URL": (web_config.get("wikis.yaml", ""), f"url: {primary}"),
         "MediaWiki canonical server": (
@@ -326,6 +374,14 @@ def validate_rendered(
         "Semantic MediaWiki host": (
             web_config.get("settings--global--04LegacyExtensions.php", ""),
             f"?: '{primary}'",
+        ),
+        "Foreground ResourceLoader styles": (
+            web_config.get("settings--global--03Foreground.php", ""),
+            "addModuleStyles( 'skins.foreground.wikiapiary' )",
+        ),
+        "Foreground ResourceLoader scripts": (
+            web_config.get("settings--global--03Foreground.php", ""),
+            "addModules( 'skins.foreground.wikiapiary' )",
         ),
         "Varnish requested-host handoff": (
             varnish_config.get("default.vcl", ""),

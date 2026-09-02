@@ -30,6 +30,9 @@ web:
       cpu: 2000m
       memory: 3Gi
 
+foregroundModern:
+  enabled: true
+
 caddy:
   replicaCount: 2
   spreadAcrossNodes: true
@@ -504,6 +507,21 @@ configData:
           'IeEdgeCode' => 1,
           'showFooterIcons' => true,
       ];
+      $wgResourceModules['skins.foreground.wikiapiary'] = [
+          'styles' => 'wikiapiary-modern.css',
+          'scripts' => 'wikiapiary-modern.js',
+          'localBasePath' => $IP . '/resources',
+          'remoteBasePath' => $wgScriptPath . '/resources',
+          'dependencies' => [ 'skins.foreground.styles' ],
+          'position' => 'top',
+      ];
+      $wgHooks['BeforePageDisplay'][] = static function ( $out, $skin ) {
+          if ( $skin->getSkinName() === 'foreground' ) {
+              $out->addModuleStyles( 'skins.foreground.wikiapiary' );
+              $out->addModules( 'skins.foreground.wikiapiary' );
+          }
+          return true;
+      };
       $egChameleonLayoutFile = $IP . '/skins/chameleon/layouts/fixedhead.xml';
     settings--global--04LegacyExtensions.php: |
       <?php

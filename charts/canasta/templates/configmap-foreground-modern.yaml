@@ -1,0 +1,15 @@
+{{- if .Values.foregroundModern.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "canasta.fullname" . }}-foreground-modern
+  namespace: {{ include "canasta.namespace" . }}
+  labels:
+    {{- include "canasta.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+data:
+  wikiapiary-modern.css: |
+{{ .Files.Get "files/wikiapiary/wikiapiary-modern.css" | indent 4 }}
+  wikiapiary-modern.js: |
+{{ .Files.Get "files/wikiapiary/wikiapiary-modern.js" | indent 4 }}
+{{- end }}
