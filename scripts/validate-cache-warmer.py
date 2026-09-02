@@ -17,8 +17,13 @@ import yaml
 
 
 class CacheBackendHandler(BaseHTTPRequestHandler):
+    received: list[tuple[str, str | None]] = []
+
     def do_GET(self) -> None:  # noqa: N802 - stdlib callback name
         parsed = urlparse(self.path)
+        type(self).received.append(
+            (parsed.path, self.headers.get("X-WikiApiary-Force-Refresh"))
+        )
         query = parse_qs(parsed.query)
         content_type = "text/html; charset=UTF-8"
         cache_control = "public, max-age=3600"
@@ -149,6 +154,7 @@ def validate(rendered_path: Path) -> None:
         "warm.php",
         "priority.php",
         "worker.php",
+        "worker-health.php",
         "run-discover.sh",
         "run-warm.sh",
         "run-warm-priority.sh",
@@ -188,6 +194,7 @@ def validate(rendered_path: Path) -> None:
                 "WARM_CACHE_DIR": str(cache_dir),
                 "WARM_BASE_URL": base_url,
                 "WARM_FANOUT_HOST": "",
+                "FORCE_REFRESH_PORT": str(server.server_port),
                 "WARM_HOST_HEADER": "primary.example.test",
                 "WARM_HOST_HEADERS": "primary.example.test,mirror.example.test",
                 "DISCOVER_BASE_URL": base_url,
@@ -198,6 +205,7 @@ def validate(rendered_path: Path) -> None:
         )
 
         try:
+            CacheBackendHandler.received = []
             (cache_dir / "access.log").write_text(
                 json.dumps(
                     {
@@ -217,6 +225,11 @@ def validate(rendered_path: Path) -> None:
 
             run_checked(["php", str(script_dir / "warm.php")], env=common_env)
             warm_report = assert_successful_report(cache_dir / "warm-run.json")
+            health = json.loads((cache_dir / "cache-health.json").read_text(encoding="utf-8"))
+            if health.get("status") != "ok" or health.get("failed") != 0:
+                raise RuntimeError(f"cache health report is not healthy: {health!r}")
+            if ("/wiki/Recently_changed", "1") not in CacheBackendHandler.received:
+                raise RuntimeError("recently changed page was not force-refreshed")
             expected_hosts = {"primary.example.test", "mirror.example.test"}
             for result in warm_report.get("results", []):
                 warmed_hosts = {
@@ -274,6 +287,23 @@ def validate(rendered_path: Path) -> None:
             )
             if "/wiki/Uncacheable" not in priority_uncacheable.get("pages", {}):
                 raise RuntimeError("no-store page was not persisted in priority skip list")
+
+            worker = scripts["worker.php"]
+            for marker in (
+                "'X-WikiApiary-Force-Refresh: 1'",
+                "['page-save', 'article-purge', 'page-move']",
+                "touch($heartbeatFile)",
+            ):
+                if marker not in worker:
+                    raise RuntimeError(f"cache worker safety marker missing: {marker}")
+
+            heartbeat = root / "worker-heartbeat"
+            heartbeat.touch()
+            health_env = common_env | {
+                "WORKER_HEARTBEAT_FILE": str(heartbeat),
+                "WORKER_MAX_STALE_SECONDS": "60",
+            }
+            run_checked(["php", str(script_dir / "worker-health.php")], env=health_env)
         finally:
             server.shutdown()
             server.server_close()

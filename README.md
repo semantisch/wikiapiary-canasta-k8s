@@ -64,8 +64,9 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) for the full policy and
    warmer, and simulates a `wikiapiary.com` hostname cutover.
 3. Protected `main` accepts only reviewed, validated pull requests.
 4. Argo CD detects the merge and automatically reconciles the live namespace.
-5. The `Production / Observe GitOps deployment` job waits for the repo-configured
-   canonical hostname, MediaWiki identity, and homepage cache HIT.
+5. The `Production / Observe GitOps deployment` job runs after releases and
+   every 15 minutes. It verifies every configured hostname, MediaWiki identity,
+   homepage cache HIT, and a fresh successful cache-automation heartbeat.
 
 GitHub Actions has no kubeconfig, Argo CD token, or production secret. Argo CD
 pulls from GitHub, which keeps workflows from untrusted forks isolated from the
@@ -86,6 +87,8 @@ canonical cutover:
   machine-readable canonical site identity and capabilities.
 - [Semantic query API example](https://wikiapiary.dobriy.ai/w/api.php?action=ask&query=%5B%5BCategory%3AWebsite%5D%5D%7Climit%3D1&format=json) —
   Semantic MediaWiki data through the Action API.
+- [Cache automation health](https://wikiapiary.dobriy.ai/healthz/cache) — minimal,
+  non-cacheable JSON checked by the scheduled production monitor.
 
 Write operations require an authenticated MediaWiki account and the appropriate
 token; do not place credentials in this repository. Integrations should derive
@@ -120,9 +123,9 @@ python3 scripts/validate-cache-warmer.py /tmp/wikiapiary-rendered.yaml
 
 ## Bootstrap and secrets
 
-Argo CD, its repository credential, and live application secrets are bootstrapped
-outside this public repository. Examples under `bootstrap/` contain names and
-shapes only; never commit real credentials.
+Argo CD, its credential-free public-repository registration, and live
+application secrets are bootstrapped outside this public repository. Examples
+under `bootstrap/` contain names and shapes only; never commit real credentials.
 
 ## Storage
 

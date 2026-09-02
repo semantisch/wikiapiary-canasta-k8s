@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import json
 from pathlib import Path
 import time
@@ -69,7 +70,18 @@ def smoke(host: str) -> str:
         )
     if "no-store" in cache_control or "private" in cache_control:
         raise RuntimeError(f"homepage is not publicly cacheable: {cache_control!r}")
-    return f"{origin} reports WikiApiary and homepage cache HIT"
+
+    cache_health_payload, cache_health_headers = request(f"{origin}/healthz/cache")
+    cache_health = json.loads(cache_health_payload)
+    if cache_health_headers.get("Cache-Control", "").lower() != "no-store":
+        raise RuntimeError("cache health response must not be cached")
+    if cache_health.get("status") != "ok" or cache_health.get("failed") != 0:
+        raise RuntimeError(f"cache automation reports degraded: {cache_health!r}")
+    generated_at = datetime.fromisoformat(str(cache_health["generatedAt"]).replace("Z", "+00:00"))
+    age_seconds = (datetime.now(timezone.utc) - generated_at).total_seconds()
+    if age_seconds < -60 or age_seconds > 1200:
+        raise RuntimeError(f"cache automation heartbeat is {age_seconds:.0f}s old")
+    return f"{origin} reports WikiApiary, cache HIT, and healthy cache automation"
 
 
 def main() -> None:

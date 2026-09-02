@@ -1,4 +1,4 @@
-vcl 4.0;
+vcl 4.1;
 
 # Borrowed from mediawiki.org/wiki/Manual:Varnish_caching
 # and modified for Canasta
@@ -102,9 +102,14 @@ sub vcl_recv {
         }
     }
 
-    # Force lookup if the request is a no-cache request from the client.
-    if (req.http.Cache-Control ~ "no-cache") {
-        ban(req.url);
+    # An authenticated application hook cannot fan out a normal CDN purge to
+    # every cache replica, so the in-cluster rewarm worker explicitly replaces
+    # each object. Never allow a public request to evict shared cache entries.
+    if (req.http.X-WikiApiary-Force-Refresh == "1") {
+        if (local.socket == "cache-admin" && client.ip ~ purge) {
+            set req.hash_always_miss = true;
+        }
+        unset req.http.X-WikiApiary-Force-Refresh;
     }
 
     # normalize Accept-Encoding to reduce vary

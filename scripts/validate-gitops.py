@@ -261,6 +261,9 @@ def validate_rendered(
         for container in varnish["spec"]["template"]["spec"]["containers"]
         if container.get("name") == "varnish"
     )
+    varnish_image = str(varnish_container.get("image", ""))
+    if not varnish_image.startswith("docker.io/library/varnish:") or "@sha256:" not in varnish_image:
+        raise RuntimeError(f"Varnish image is not digest-pinned: {varnish_image!r}")
     varnish_resources = varnish_container.get("resources", {})
     if varnish_resources.get("requests", {}).get("memory") != "4Gi" or (
         varnish_resources.get("limits", {}).get("memory") != "5Gi"
@@ -321,6 +324,18 @@ def validate_rendered(
             varnish_config.get("default.vcl", ""),
             "if (beresp.status >= 400)",
         ),
+        "Varnish internal refresh bypass": (
+            varnish_config.get("default.vcl", ""),
+            "set req.hash_always_miss = true;",
+        ),
+        "Varnish dedicated refresh listener": (
+            varnish_config.get("default.vcl", ""),
+            'local.socket == "cache-admin"',
+        ),
+        "Caddy cache-health route": (
+            caddy_config.get("Caddyfile.site", ""),
+            "@cache_health path /healthz/cache",
+        ),
     }
     caddyfile = caddy_config.get("Caddyfile", "")
     for host in hosts:
@@ -335,6 +350,26 @@ def validate_rendered(
     suspended = [job["metadata"]["name"] for job in cronjobs if job["spec"].get("suspend")]
     if suspended:
         raise RuntimeError(f"production cache CronJobs must not be suspended: {suspended!r}")
+    for cronjob in cronjobs:
+        pod_spec = cronjob["spec"]["jobTemplate"]["spec"]["template"]["spec"]
+        container = pod_spec["containers"][0]
+        image = str(container.get("image", ""))
+        if not image.startswith("docker.io/library/php:") or "@sha256:" not in image:
+            raise RuntimeError(f"cache CronJob runtime is not digest-pinned: {image!r}")
+        if pod_spec.get("nodeSelector") != {"wikiapiary-role": "worker"}:
+            raise RuntimeError("cache CronJobs must target the NFS-capable worker pool")
+
+    rewarm = find_one(documents, "Deployment", "-cache-rewarm-worker")
+    rewarm_spec = rewarm["spec"]["template"]["spec"]
+    rewarm_container = rewarm_spec["containers"][0]
+    if not rewarm_container.get("livenessProbe", {}).get("exec", {}).get("command"):
+        raise RuntimeError("cache rewarm worker must have a heartbeat liveness probe")
+    if rewarm_spec.get("nodeSelector") != {"wikiapiary-role": "worker"}:
+        raise RuntimeError("cache rewarm worker must target the NFS-capable worker pool")
+
+    varnish_headless = find_one(documents, "Service", "varnish-headless")
+    if varnish_headless.get("spec", {}).get("publishNotReadyAddresses"):
+        raise RuntimeError("cache warming must not target unready Varnish replicas")
 
 
 def validate_argocd(application: dict[str, Any]) -> None:
