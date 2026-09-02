@@ -103,8 +103,10 @@ cacheWarmer:
   backoffLimit: 1
   ttlSecondsAfterFinished: 600
   discoverActiveDeadlineSeconds: 300
-  priorityActiveDeadlineSeconds: 300
-  warmActiveDeadlineSeconds: 600
+  # Cold caches need longer than steady-state cycles because every selected
+  # page must be rendered once on each cache replica and hostname.
+  priorityActiveDeadlineSeconds: 900
+  warmActiveDeadlineSeconds: 1200
   accessLogTail: 4000
   biggestWikisLimit: 100
   largestBatchSize: 20

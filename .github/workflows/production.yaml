@@ -27,7 +27,7 @@ jobs:
       (github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     environment: production
     permissions:
       contents: read
@@ -43,4 +43,4 @@ jobs:
         run: python3 -m pip install --disable-pip-version-check --requirement requirements-ci.txt
 
       - name: Wait for the configured production host
-        run: python3 scripts/smoke-production.py --values values/prod.yaml
+        run: python3 scripts/smoke-production.py --values values/prod.yaml --attempts 60

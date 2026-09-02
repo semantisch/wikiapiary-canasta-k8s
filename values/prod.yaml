@@ -101,8 +101,10 @@ cacheWarmer:
   backoffLimit: 1
   ttlSecondsAfterFinished: 600
   discoverActiveDeadlineSeconds: 300
-  priorityActiveDeadlineSeconds: 300
-  warmActiveDeadlineSeconds: 600
+  # Allow a complete cold-cache rebuild; concurrencyPolicy=Forbid prevents
+  # overlapping schedules while a cycle is still active.
+  priorityActiveDeadlineSeconds: 900
+  warmActiveDeadlineSeconds: 1200
   accessLogTail: 6000
   biggestWikisLimit: 100
   largestBatchSize: 20
