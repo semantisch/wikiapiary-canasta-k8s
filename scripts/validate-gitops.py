@@ -271,6 +271,21 @@ def validate_rendered(
         raise RuntimeError(
             f"Varnish memory does not safely contain its 4G cache: {varnish_resources!r}"
         )
+    for component, deployment in (
+        ("Varnish", varnish),
+        ("Caddy", find_one(documents, "Deployment", "-caddy")),
+    ):
+        rolling = deployment.get("spec", {}).get("strategy", {}).get("rollingUpdate", {})
+        if rolling != {"maxUnavailable": 1, "maxSurge": 0}:
+            raise RuntimeError(f"{component} rollout does not preserve strict spreading: {rolling!r}")
+        anti_affinity = (
+            deployment["spec"]["template"]["spec"]
+            .get("affinity", {})
+            .get("podAntiAffinity", {})
+            .get("requiredDuringSchedulingIgnoredDuringExecution", [])
+        )
+        if not anti_affinity:
+            raise RuntimeError(f"{component} replicas do not require distinct nodes")
 
     web_config = find_one(documents, "ConfigMap", "-web-config").get("data", {})
     caddy_config = find_one(documents, "ConfigMap", "-caddy-config").get("data", {})

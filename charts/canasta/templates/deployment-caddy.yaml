@@ -8,6 +8,13 @@ metadata:
     app.kubernetes.io/component: caddy
 spec:
   replicas: {{ .Values.caddy.replicaCount }}
+  {{- if .Values.caddy.spreadAcrossNodes }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 0
+  {{- end }}
   selector:
     matchLabels:
       {{- include "canasta.selectorLabels" . | nindent 6 }}
@@ -29,21 +36,19 @@ spec:
       topologySpreadConstraints:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname
-          whenUnsatisfiable: ScheduleAnyway
+          whenUnsatisfiable: DoNotSchedule
           labelSelector:
             matchLabels:
               {{- include "canasta.selectorLabels" . | nindent 14 }}
               app.kubernetes.io/component: caddy
       affinity:
         podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                topologyKey: kubernetes.io/hostname
-                labelSelector:
-                  matchLabels:
-                    {{- include "canasta.selectorLabels" . | nindent 20 }}
-                    app.kubernetes.io/component: caddy
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: kubernetes.io/hostname
+              labelSelector:
+                matchLabels:
+                  {{- include "canasta.selectorLabels" . | nindent 18 }}
+                  app.kubernetes.io/component: caddy
       {{- end }}
       containers:
         - name: caddy
