@@ -85,14 +85,19 @@
 .skin-foreground #navwrapper {
   position: relative;
   z-index: 700;
-  background: var(--wa-nav);
+  background: var(--wa-nav) !important;
   border-bottom: 3px solid var(--wa-brand);
   box-shadow: 0 3px 14px rgba(0, 0, 0, 0.16);
 }
 
 .skin-foreground .top-bar,
 .skin-foreground .top-bar.expanded,
+.skin-foreground .top-bar .title-area,
 .skin-foreground .top-bar.expanded .title-area,
+.skin-foreground .top-bar .name,
+.skin-foreground .top-bar .title-name,
+.skin-foreground .top-bar-section,
+.skin-foreground .top-bar-section > ul,
 .skin-foreground .top-bar-section ul li,
 .skin-foreground .top-bar-section .has-form {
   background: var(--wa-nav) !important;
@@ -138,7 +143,7 @@
 
 .skin-foreground .top-bar-section > ul > li:not(.has-form) > a,
 .skin-foreground .top-bar-section li.active:not(.has-form) a:not(.button) {
-  background: transparent;
+  background: transparent !important;
   color: var(--wa-ink) !important;
   font-family: Inter, ui-sans-serif, sans-serif;
   font-size: 0.875rem;
@@ -179,7 +184,7 @@
 }
 
 .skin-foreground #searchInput {
-  width: clamp(10rem, 16vw, 15rem);
+  width: clamp(12rem, 20vw, 18rem);
   height: 2.4rem;
   margin: 0;
   padding: 0 0.85rem;
@@ -285,7 +290,7 @@
 /* Page surface and hierarchy */
 
 .skin-foreground #page-content {
-  margin: 2rem 0 0;
+  margin: 0;
 }
 
 .skin-foreground #page-content > .row,
@@ -296,7 +301,8 @@
 .skin-foreground #p-cactions {
   padding: clamp(1.25rem, 3vw, 2.4rem);
   border: 1px solid var(--wa-border);
-  border-radius: var(--wa-radius);
+  border-top: 0;
+  border-radius: 0 0 var(--wa-radius) var(--wa-radius);
   background: var(--wa-surface);
   box-shadow: var(--wa-shadow-sm);
 }
@@ -319,7 +325,7 @@
 
 .skin-foreground a#actions-button {
   min-height: 2.35rem;
-  margin: 0;
+  margin: 0 0 1rem 1rem;
   padding: 0.48rem 0.8rem;
   border: 1px solid var(--wa-border-strong);
   border-radius: var(--wa-radius-sm);
@@ -402,6 +408,10 @@
   padding: 0.8rem 1rem;
 }
 
+.skin-foreground .mw-pt-languages-label {
+  background: transparent !important;
+}
+
 .skin-foreground #catlinks {
   margin-top: 2rem;
   padding: 0.8rem 1rem;
@@ -477,11 +487,39 @@
   display: none;
 }
 
+.skin-foreground.page-Main_Page #siteSub {
+  display: none;
+}
+
+@media only screen and (min-width: 40.063em) {
+  .skin-foreground.page-Main_Page #p-cactions {
+    padding-top: 2rem;
+  }
+
+  .skin-foreground.page-Main_Page a#actions-button {
+    position: absolute;
+    top: 1.25rem;
+    right: clamp(1.25rem, 3vw, 2.4rem);
+    float: none;
+    margin: 0;
+  }
+
+  .skin-foreground.page-Main_Page .mw-parser-output > .row:first-child > .large-4.column {
+    padding-top: 2.6rem;
+  }
+}
+
 .skin-foreground.page-Main_Page .mw-parser-output > .row:first-child {
   display: flex;
   align-items: flex-start;
   gap: clamp(1.25rem, 3vw, 2.25rem);
   margin-bottom: 2rem;
+}
+
+.skin-foreground.page-Main_Page .mw-parser-output > .row:first-child::before,
+.skin-foreground.page-Main_Page .mw-parser-output > .row:first-child::after {
+  display: none;
+  content: none;
 }
 
 .skin-foreground.page-Main_Page .mw-parser-output > .row:first-child > .large-8.column {

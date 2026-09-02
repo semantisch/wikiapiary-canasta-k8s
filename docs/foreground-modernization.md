@@ -24,6 +24,36 @@ a compact card and suppresses the editor-only stale-translation notice.
 
 ![Foreground Main Page after modernization on mobile](screenshots/foreground-after-mobile.png)
 
+## Pre-change reference pages
+
+These screenshots preserve the untouched production Foreground presentation
+before the WikiApiary modernization module was deployed. Each capture uses a
+1440 × 1000 desktop viewport.
+
+### Main Page
+
+![Main Page before modernization](screenshots/foreground-before-desktop.png)
+
+### Wiki detail
+
+![Wiki detail page before modernization](screenshots/foreground-before-wiki-detail.png)
+
+### Data listing
+
+![Data listing before modernization](screenshots/foreground-before-data-listing.png)
+
+### Search
+
+![Search page before modernization](screenshots/foreground-before-search.png)
+
+### Login
+
+![Login page before modernization](screenshots/foreground-before-login.png)
+
+### Edit or source view
+
+![Edit view before modernization](screenshots/foreground-before-edit.png)
+
 ## Maintenance
 
 - Edit `charts/canasta/files/wikiapiary/wikiapiary-modern.css` for visual
