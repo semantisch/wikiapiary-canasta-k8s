@@ -26,6 +26,9 @@ renders `charts/canasta` with `values/prod.yaml`, and reconciles namespace
 ├── docs/
 │   ├── architecture.dot     editable architecture-diagram source
 │   ├── architecture.svg     rendered diagram embedded above
+│   ├── foreground-modernization.md
+│   │                        Foreground visual-layer guide and previews
+│   ├── screenshots/         visual-regression reference images
 │   └── hostname/README.md   canonical-host migration runbook
 ├── image/                   legacy image build support
 ├── legacy/                  retained WikiApiary assets and source material
@@ -39,6 +42,10 @@ The chart is vendored so pull requests can render and validate the complete
 deployment without downloading mutable chart code. Production-specific values
 remain separate from chart defaults, and runtime secrets are referenced by name
 rather than stored in Git.
+
+See [Foreground modernization](docs/foreground-modernization.md) for the
+WikiApiary-specific visual layer, before-and-after previews, and maintenance
+instructions.
 
 ## Contributing
 

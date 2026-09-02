@@ -33,6 +33,10 @@ web:
       cpu: 1000m
       memory: 1Gi
 
+# GitOps-managed visual enhancements for the existing Foreground skin.
+foregroundModern:
+  enabled: false
+
 # Caddy (reverse proxy + wiki farm routing)
 caddy:
   image: caddy:2.10.2-alpine

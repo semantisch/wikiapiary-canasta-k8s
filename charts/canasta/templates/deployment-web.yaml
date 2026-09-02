@@ -24,6 +24,9 @@ spec:
         checksum/web-config: {{ .Values.configData.web | toJson | sha256sum }}
         checksum/site-hosts: {{ dict "server" (include "canasta.siteServer" .) "hosts" (include "canasta.hosts" .) | toJson | sha256sum }}
         checksum/env-config: {{ .Values.configData.env | default dict | toJson | sha256sum }}
+        {{- if .Values.foregroundModern.enabled }}
+        checksum/foreground-modern: {{ printf "%s%s" (.Files.Get "files/wikiapiary/wikiapiary-modern.css") (.Files.Get "files/wikiapiary/wikiapiary-modern.js") | sha256sum }}
+        {{- end }}
         {{- if .Values.extensionOverrides.enabled }}
         checksum/extension-overrides: {{ printf "%s%s" (.Files.Get "files/wikiapiary/Stats.php") (.Files.Get "files/wikiapiary/stats-snapshot.json") | sha256sum }}
         {{- end }}
@@ -189,6 +192,16 @@ spec:
               mountPath: /var/www/mediawiki/w/user-extensions/WikiApiary/includes/data/query/stats-snapshot.json
               subPath: stats-snapshot.json
             {{- end }}
+            {{- if .Values.foregroundModern.enabled }}
+            - name: foreground-modern
+              mountPath: /var/www/mediawiki/w/resources/wikiapiary-modern.css
+              subPath: wikiapiary-modern.css
+              readOnly: true
+            - name: foreground-modern
+              mountPath: /var/www/mediawiki/w/resources/wikiapiary-modern.js
+              subPath: wikiapiary-modern.js
+              readOnly: true
+            {{- end }}
             - name: user-skins
               mountPath: /var/www/mediawiki/w/user-skins
             - name: public-assets
@@ -249,6 +262,11 @@ spec:
         - name: extension-overrides
           configMap:
             name: {{ include "canasta.fullname" . }}-extension-overrides
+        {{- end }}
+        {{- if .Values.foregroundModern.enabled }}
+        - name: foreground-modern
+          configMap:
+            name: {{ include "canasta.fullname" . }}-foreground-modern
         {{- end }}
         - name: user-skins
           persistentVolumeClaim:
