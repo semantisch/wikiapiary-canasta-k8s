@@ -29,7 +29,7 @@ spec:
       containers:
         - name: cache-rewarm-worker
           image: {{ .Values.cacheWarmer.image | default (include "canasta.image" .) }}
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          imagePullPolicy: {{ .Values.cacheWarmer.imagePullPolicy }}
           command: ["/bin/sh", "/scripts/run-worker.sh"]
           env:
             - name: SITE_SERVER
@@ -40,6 +40,8 @@ spec:
               value: "{{ .Values.cacheWarmer.requestBaseUrl }}"
             - name: WARM_FANOUT_HOST
               value: "{{ .Values.cacheWarmer.warmFanoutHost }}"
+            - name: FORCE_REFRESH_PORT
+              value: "{{ .Values.cacheWarmer.forceRefreshPort }}"
             - name: WARM_HOST_HEADER
               value: {{ include "canasta.primaryHost" . | quote }}
             - name: WARM_HOST_HEADERS
@@ -52,6 +54,10 @@ spec:
               value: "{{ .Values.cacheWarmer.queueBatchSize }}"
             - name: TIER1_REFRESH_SECONDS
               value: "{{ .Values.cacheWarmer.tier1RefreshSeconds }}"
+            - name: WORKER_MAX_STALE_SECONDS
+              value: "{{ .Values.cacheWarmer.workerMaxStaleSeconds }}"
+            - name: WORKER_HEARTBEAT_FILE
+              value: /tmp/wikiapiary-cache-worker-heartbeat
             - name: REQUEST_TIMEOUT_SECONDS
               value: "{{ .Values.cacheWarmer.requestTimeoutSeconds }}"
             - name: UNCACHEABLE_TTL_SECONDS
@@ -66,6 +72,15 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          livenessProbe:
+            exec:
+              command:
+                - php
+                - /scripts/worker-health.php
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
       volumes:
         - name: scripts
           configMap:

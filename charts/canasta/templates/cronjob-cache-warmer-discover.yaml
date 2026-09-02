@@ -34,7 +34,7 @@ spec:
           containers:
             - name: discover
               image: {{ .Values.cacheWarmer.image | default (include "canasta.image" .) }}
-              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              imagePullPolicy: {{ .Values.cacheWarmer.imagePullPolicy }}
               command: ["/bin/sh", "/scripts/run-discover.sh"]
               env:
                 - name: SITE_SERVER

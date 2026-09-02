@@ -50,7 +50,8 @@ caddy:
 # Varnish cache
 varnish:
   enabled: true
-  image: varnish:7.0.2-alpine
+  image: "docker.io/library/varnish:7.0.2-alpine@sha256:136ebffb7de1b5f1b16ec07b2225088d5b888cb434c4484b684e06e634c19aa2"
+  imagePullPolicy: IfNotPresent
   storageSize: 100M
   replicaCount: 1
   spreadAcrossNodes: false
@@ -89,9 +90,11 @@ cacheWarmer:
   enabled: false
   workerEnabled: false
   suspend: false
-  image: ""
+  image: "docker.io/library/php:8.3.31-cli-alpine3.22@sha256:2f2e706ad96f295e2bc2b36dcc88e7413b7270fcd2b1532f3cfb4b6ebeca74ca"
+  imagePullPolicy: IfNotPresent
   requestBaseUrl: "http://varnish"
   warmFanoutHost: ""
+  forceRefreshPort: 6082
   nodeSelector: {}
   discoverSchedule: "*/20 * * * *"
   priorityWarmSchedule: "*/1 * * * *"
@@ -115,6 +118,7 @@ cacheWarmer:
   queuePollSeconds: 5
   queueBatchSize: 60
   tier1RefreshSeconds: 900
+  workerMaxStaleSeconds: 300
   requestTimeoutSeconds: 15
   uncacheableTtlSeconds: 86400
   resources:

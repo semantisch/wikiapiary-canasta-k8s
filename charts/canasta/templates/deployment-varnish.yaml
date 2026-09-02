@@ -49,6 +49,10 @@ spec:
       containers:
         - name: varnish
           image: {{ .Values.varnish.image }}
+          imagePullPolicy: {{ .Values.varnish.imagePullPolicy }}
+          args:
+            - -a
+            - cache-admin=:6082,HTTP
           env:
             - name: VARNISH_SIZE
               value: {{ .Values.varnish.storageSize | quote }}
@@ -59,6 +63,9 @@ spec:
           ports:
             - name: http
               containerPort: 80
+              protocol: TCP
+            - name: cache-admin
+              containerPort: 6082
               protocol: TCP
           lifecycle:
             postStart:

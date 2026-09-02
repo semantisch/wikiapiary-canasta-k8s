@@ -45,6 +45,8 @@ caddy:
 
 varnish:
   enabled: true
+  image: "docker.io/library/varnish:7.0.2-alpine@sha256:136ebffb7de1b5f1b16ec07b2225088d5b888cb434c4484b684e06e634c19aa2"
+  imagePullPolicy: IfNotPresent
   replicaCount: 2
   # The image default is only 100M; production uses a 40x larger cache so the
   # hot WikiApiary working set survives between warming cycles.
@@ -83,8 +85,13 @@ cacheWarmer:
   enabled: true
   workerEnabled: true
   suspend: false
+  # Cache automation must be registry-backed: the application image is loaded
+  # onto selected nodes and is not a reliable runtime for scheduled Jobs.
+  image: "docker.io/library/php:8.3.31-cli-alpine3.22@sha256:2f2e706ad96f295e2bc2b36dcc88e7413b7270fcd2b1532f3cfb4b6ebeca74ca"
+  imagePullPolicy: IfNotPresent
   requestBaseUrl: "http://varnish"
   warmFanoutHost: "varnish-headless"
+  forceRefreshPort: 6082
   nodeSelector:
     wikiapiary-role: worker
   discoverSchedule: "*/20 * * * *"
@@ -109,6 +116,7 @@ cacheWarmer:
   queuePollSeconds: 5
   queueBatchSize: 60
   tier1RefreshSeconds: 900
+  workerMaxStaleSeconds: 300
   requestTimeoutSeconds: 15
   uncacheableTtlSeconds: 86400
   resources:
@@ -850,15 +858,17 @@ configData:
 
       __CADDY_SITE_ADDRESSES__ {
           import /etc/caddy/Caddyfile.site
-          reverse_proxy varnish:80 {
-              lb_retries 2
-              lb_try_duration 5s
-              fail_duration 30s
+          handle {
+              reverse_proxy varnish:80 {
+                  lb_retries 2
+                  lb_try_duration 5s
+                  fail_duration 30s
 
-              transport http {
-                  keepalive off
-                  dial_timeout 5s
-                  response_header_timeout 60s
+                  transport http {
+                      keepalive off
+                      dial_timeout 5s
+                      response_header_timeout 60s
+                  }
               }
           }
 
@@ -870,6 +880,15 @@ configData:
       @legacy_root_assets path /wmf-cloud.png /mariadb-badge-88x31.png /smw-logo.png
       handle @legacy_root_assets {
           root * /srv/wiki-images/wikiapiary-assets
+          file_server
+      }
+
+      @cache_health path /healthz/cache
+      handle @cache_health {
+          root * /var/log/caddy
+          rewrite * /cache-health.json
+          header Content-Type application/json
+          header Cache-Control "no-store"
           file_server
       }
     Caddyfile.global: |

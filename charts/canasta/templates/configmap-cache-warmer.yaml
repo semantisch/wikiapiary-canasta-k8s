@@ -416,11 +416,13 @@ data:
     $seedFile = $baseDir . '/seed-pages.json';
     $translationFile = $baseDir . '/translation-pages.json';
     $reportFile = $baseDir . '/warm-run.json';
+    $healthFile = $baseDir . '/cache-health.json';
     $warmStateFile = $baseDir . '/warm-state.json';
     $uncacheableFile = $baseDir . '/uncacheable-pages.json';
     $siteServer = rtrim(getenv('SITE_SERVER') ?: '{{ include "canasta.siteServer" . }}', '/');
     $warmBaseUrl = rtrim(getenv('WARM_BASE_URL') ?: $siteServer, '/');
     $warmFanoutHost = getenv('WARM_FANOUT_HOST') ?: '';
+    $forceRefreshPort = max(1, (int)(getenv('FORCE_REFRESH_PORT') ?: 6082));
     $warmHostHeader = getenv('WARM_HOST_HEADER') ?: '';
     $configuredWarmHosts = array_values(array_unique(array_filter(array_map(
         'trim',
@@ -677,6 +679,16 @@ data:
         return $expanded ?: $targets;
     }
 
+    function with_port($baseUrl, $port) {
+        $parts = parse_url($baseUrl);
+        if (!$parts || empty($parts['host'])) {
+            return $baseUrl;
+        }
+        $scheme = $parts['scheme'] ?? 'http';
+        $path = rtrim($parts['path'] ?? '', '/');
+        return $scheme . '://' . $parts['host'] . ':' . $port . $path;
+    }
+
     $seedPages = load_json($seedFile, ['pages' => []])['pages'] ?? [];
     $translationPages = load_json($translationFile, ['pages' => []])['pages'] ?? [];
     $hotPages = load_json($hotFile, ['pages' => []])['pages'] ?? [];
@@ -717,6 +729,7 @@ data:
         }
         $changedPages[] = wiki_path_from_title($change['title']);
     }
+    $changedPageSet = array_fill_keys($changedPages, true);
 
     $largestBatch = [];
     $largestCount = count($largestPages);
@@ -756,9 +769,15 @@ data:
         $metadata = [];
         foreach ($warmHeaderSets as $headerSet) {
             foreach ($warmTargets as $base) {
+                $headers = $headerSet['headers'];
+                $requestBase = $base;
+                if (isset($changedPageSet[$path])) {
+                    $headers[] = 'X-WikiApiary-Force-Refresh: 1';
+                    $requestBase = with_port($base, $forceRefreshPort);
+                }
                 $requests[] = [
-                    'url' => $base . $path,
-                    'headers' => $headerSet['headers'],
+                    'url' => $requestBase . $path,
+                    'headers' => $headers,
                 ];
                 $metadata[] = [
                     'base' => $base,
@@ -821,7 +840,20 @@ data:
             $ok++;
         }
     }
-    echo "warmed=" . count($results) . " ok=" . $ok . PHP_EOL;
+    $failed = count($results) - $ok;
+    atomic_write_json($healthFile, [
+        'component' => 'cache-warmer',
+        'generatedAt' => gmdate('c'),
+        'status' => $failed === 0 ? 'ok' : 'degraded',
+        'targets' => count($results),
+        'succeeded' => $ok,
+        'failed' => $failed,
+    ]);
+    echo "warmed=" . count($results) . " ok=" . $ok . " failed=" . $failed . PHP_EOL;
+    if ($failed > 0) {
+        fwrite(STDERR, "Cache warming failed for {$failed} target(s).\n");
+        exit(1);
+    }
   run-discover.sh: |
     #!/bin/sh
     set -eu
@@ -1295,8 +1327,10 @@ data:
     $uncacheableFile = $baseDir . '/uncacheable-pages.json';
     $workerStateFile = $baseDir . '/rewarm-worker-state.json';
     $startupStampFile = $baseDir . '/varnish-startup.stamp';
+    $heartbeatFile = getenv('WORKER_HEARTBEAT_FILE') ?: '/tmp/wikiapiary-cache-worker-heartbeat';
     $warmBaseUrl = rtrim(getenv('WARM_BASE_URL') ?: $siteServer, '/');
     $warmFanoutHost = getenv('WARM_FANOUT_HOST') ?: '';
+    $forceRefreshPort = max(1, (int)(getenv('FORCE_REFRESH_PORT') ?: 6082));
     $warmHostHeader = getenv('WARM_HOST_HEADER') ?: '';
     $configuredWarmHosts = array_values(array_unique(array_filter(array_map(
         'trim',
@@ -1446,6 +1480,16 @@ data:
         return $expanded ?: $targets;
     }
 
+    function with_port($baseUrl, $port) {
+        $parts = parse_url($baseUrl);
+        if (!$parts || empty($parts['host'])) {
+            return $baseUrl;
+        }
+        $scheme = $parts['scheme'] ?? 'http';
+        $path = rtrim($parts['path'] ?? '', '/');
+        return $scheme . '://' . $parts['host'] . ':' . $port . $path;
+    }
+
     function append_queue_items($queueFile, array $entries, $reason) {
         if (!$entries) {
             return 0;
@@ -1560,7 +1604,9 @@ data:
     $lastTier1At = (int)($state['lastTier1At'] ?? 0);
     $lastStartupStamp = (string)($state['lastStartupStamp'] ?? '');
 
+    touch($heartbeatFile);
     while (true) {
+        touch($heartbeatFile);
         $now = time();
         $uncacheableMap = load_json($uncacheableFile, ['pages' => []])['pages'] ?? [];
         foreach ($uncacheableMap as $path => $until) {
@@ -1626,6 +1672,8 @@ data:
             }
             $seen[$path] = true;
             $attempt = max(0, (int)($entry['attempt'] ?? 0));
+            $reason = (string)($entry['reason'] ?? 'queue');
+            $forceRefresh = in_array($reason, ['page-save', 'article-purge', 'page-move'], true);
             $baseTargets = [];
             if (!empty($entry['baseUrl']) && is_string($entry['baseUrl'])) {
                 $baseTargets = [rtrim($entry['baseUrl'], '/')];
@@ -1650,7 +1698,15 @@ data:
             $allOk = true;
             foreach ($headerSets as $headerSet) {
                 foreach ($baseTargets as $baseUrl) {
-                    $refresh = request_url($baseUrl . $path, $requestTimeout, $headerSet['headers']);
+                    $requestHeaders = $headerSet['headers'];
+                    $requestBaseUrl = $baseUrl;
+                    if ($forceRefresh) {
+                        $requestHeaders[] = 'X-WikiApiary-Force-Refresh: 1';
+                        $requestBaseUrl = with_port($baseUrl, $forceRefreshPort);
+                    }
+                    touch($heartbeatFile);
+                    $refresh = request_url($requestBaseUrl . $path, $requestTimeout, $requestHeaders);
+                    touch($heartbeatFile);
                     if (!empty($refresh['ok']) && (($refresh['cache'] ?? '') !== 'HIT' || ($refresh['age'] ?? null) === null)) {
                         usleep(100000);
                         $retry = request_url($baseUrl . $path, $requestTimeout, $headerSet['headers']);
@@ -1664,8 +1720,9 @@ data:
                     if (empty($refresh['ok'])) {
                         $allOk = false;
                     }
-                    echo gmdate('c') . " queue={$queueKind} path={$path} reason=" . ($entry['reason'] ?? 'queue') .
+                    echo gmdate('c') . " queue={$queueKind} path={$path} reason={$reason}" .
                         " attempt={$attempt}" .
+                        " forced=" . ($forceRefresh ? 'yes' : 'no') .
                         " host=" . $headerSet['host'] .
                         " base=" . $baseUrl .
                         " status=" . ($refresh['status'] ?? 0) .
@@ -1689,6 +1746,7 @@ data:
                 ]], ($entry['reason'] ?? 'queue') . '-retry');
             }
             $processed++;
+            touch($heartbeatFile);
             usleep(100000);
         }
 
@@ -1703,6 +1761,21 @@ data:
             'lastProcessedCount' => $processed
         ]);
     }
+  worker-health.php: |
+    <?php
+    $heartbeatFile = getenv('WORKER_HEARTBEAT_FILE') ?: '/tmp/wikiapiary-cache-worker-heartbeat';
+    $maxStaleSeconds = max(60, (int)(getenv('WORKER_MAX_STALE_SECONDS') ?: 300));
+    clearstatcache(true, $heartbeatFile);
+    if (!is_file($heartbeatFile)) {
+        fwrite(STDERR, "Cache worker heartbeat is missing.\n");
+        exit(1);
+    }
+    $heartbeatAge = time() - (int)filemtime($heartbeatFile);
+    if ($heartbeatAge > $maxStaleSeconds) {
+        fwrite(STDERR, "Cache worker heartbeat is {$heartbeatAge}s old.\n");
+        exit(1);
+    }
+    echo "cache worker healthy; heartbeat age={$heartbeatAge}s\n";
   run-worker.sh: |
     #!/bin/sh
     set -eu

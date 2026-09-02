@@ -82,6 +82,10 @@ spec:
       targetPort: http
       protocol: TCP
       name: http
+    - port: 6082
+      targetPort: cache-admin
+      protocol: TCP
+      name: cache-admin
   selector:
     {{- include "canasta.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: varnish
@@ -96,12 +100,15 @@ metadata:
     app.kubernetes.io/component: varnish
 spec:
   clusterIP: None
-  publishNotReadyAddresses: true
   ports:
     - port: 80
       targetPort: http
       protocol: TCP
       name: http
+    - port: 6082
+      targetPort: cache-admin
+      protocol: TCP
+      name: cache-admin
   selector:
     {{- include "canasta.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: varnish

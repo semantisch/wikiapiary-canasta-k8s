@@ -34,7 +34,7 @@ spec:
           containers:
             - name: warm-priority
               image: {{ .Values.cacheWarmer.image | default (include "canasta.image" .) }}
-              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              imagePullPolicy: {{ .Values.cacheWarmer.imagePullPolicy }}
               command: ["/bin/sh", "/scripts/run-warm-priority.sh"]
               env:
                 - name: SITE_SERVER
@@ -111,7 +111,7 @@ spec:
           containers:
             - name: warm
               image: {{ .Values.cacheWarmer.image | default (include "canasta.image" .) }}
-              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              imagePullPolicy: {{ .Values.cacheWarmer.imagePullPolicy }}
               command: ["/bin/sh", "/scripts/run-warm.sh"]
               env:
                 - name: SITE_SERVER
@@ -120,6 +120,8 @@ spec:
                   value: "{{ .Values.cacheWarmer.requestBaseUrl }}"
                 - name: WARM_FANOUT_HOST
                   value: "{{ .Values.cacheWarmer.warmFanoutHost }}"
+                - name: FORCE_REFRESH_PORT
+                  value: "{{ .Values.cacheWarmer.forceRefreshPort }}"
                 - name: WARM_HOST_HEADER
                   value: {{ include "canasta.primaryHost" . | quote }}
                 - name: WARM_HOST_HEADERS
