@@ -83,6 +83,9 @@ class CacheBackendHandler(BaseHTTPRequestHandler):
             cache_status = "MISS"
             cache_age = None
 
+        if parsed.path == "/wiki/Main_Page":
+            cache_age = "0"
+
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Cache-Control", cache_control)
@@ -263,6 +266,12 @@ def validate(rendered_path: Path) -> None:
             }
             run_checked(["php", str(script_dir / "priority.php")], env=priority_env)
             priority_report = assert_successful_report(cache_dir / "priority-warm-run.json")
+            main_page = next(
+                result for result in priority_report["results"]
+                if result["path"] == "/wiki/Main_Page"
+            )
+            if any(target.get("age") != 0 for target in main_page["targetResults"]):
+                raise RuntimeError("fresh cache hits must retain Age: 0")
             root_result = next(
                 (
                     result
