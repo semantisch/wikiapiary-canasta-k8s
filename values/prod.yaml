@@ -122,7 +122,9 @@ cacheWarmer:
   queueBatchSize: 60
   tier1RefreshSeconds: 900
   workerMaxStaleSeconds: 300
-  requestTimeoutSeconds: 15
+  # Semantic report pages can take over 25 seconds on a cold cache.
+  # Keep the warmer patient enough to receive the successful response.
+  requestTimeoutSeconds: 60
   uncacheableTtlSeconds: 86400
   resources:
     requests:
