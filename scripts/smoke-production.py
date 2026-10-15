@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timezone
+from http.client import HTTPException
 import json
 from pathlib import Path
 import time
@@ -23,6 +24,18 @@ def request(url: str) -> tuple[bytes, Any]:
     http_request = Request(url, headers={"User-Agent": USER_AGENT})
     with urlopen(http_request, timeout=20) as response:  # noqa: S310 - configured HTTPS host
         return response.read(), response.headers
+
+
+def request_json(url: str) -> tuple[Any, Any]:
+    payload, headers = request(url)
+    try:
+        return json.loads(payload), headers
+    except (ValueError, UnicodeError) as error:
+        content_type = headers.get("Content-Type", "unknown")
+        raise RuntimeError(
+            f"{url} returned non-JSON content ({content_type}); "
+            "check the edge proxy and application readiness"
+        ) from error
 
 
 def configured_hosts(values_path: Path) -> list[str]:
@@ -51,8 +64,8 @@ def smoke(host: str) -> str:
             "format": "json",
         }
     )
-    api_payload, _ = request(f"{origin}/w/api.php?{api_query}")
-    general = json.loads(api_payload)["query"]["general"]
+    api_payload, _ = request_json(f"{origin}/w/api.php?{api_query}")
+    general = api_payload["query"]["general"]
     if general.get("sitename") != "WikiApiary":
         raise RuntimeError(f"unexpected sitename: {general.get('sitename')!r}")
     reported_host = urlparse(general.get("base", "")).hostname
@@ -71,8 +84,7 @@ def smoke(host: str) -> str:
     if "no-store" in cache_control or "private" in cache_control:
         raise RuntimeError(f"homepage is not publicly cacheable: {cache_control!r}")
 
-    cache_health_payload, cache_health_headers = request(f"{origin}/healthz/cache")
-    cache_health = json.loads(cache_health_payload)
+    cache_health, cache_health_headers = request_json(f"{origin}/healthz/cache")
     if cache_health_headers.get("Cache-Control", "").lower() != "no-store":
         raise RuntimeError("cache health response must not be cached")
     if cache_health.get("status") != "ok" or cache_health.get("failed") != 0:
@@ -98,7 +110,10 @@ def main() -> None:
             results = [smoke(host) for host in hosts]
             print("production smoke passed: " + "; ".join(results))
             return
-        except (HTTPError, URLError, KeyError, ValueError, RuntimeError) as error:
+        except (
+            HTTPError, URLError, TimeoutError, ConnectionError, HTTPException,
+            KeyError, ValueError, RuntimeError,
+        ) as error:
             last_error = error
             print(f"attempt {attempt}/{args.attempts} not ready: {error}", flush=True)
             if attempt < args.attempts:

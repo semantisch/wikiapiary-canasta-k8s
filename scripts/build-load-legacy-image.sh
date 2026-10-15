@@ -4,7 +4,7 @@ set -euo pipefail
 KUBECONFIG_PATH="${KUBECONFIG_PATH:-/home/vanya/.kube/dobriyai-hosting.yaml}"
 NODE_NAME="${NODE_NAME:-dobriyai-hosting-2}"
 DEBUG_POD="wikiapiary-image-loader"
-IMAGE_REF="${IMAGE_REF:-wikiapiary-legacy:20260501-foreground}"
+IMAGE_REF="${IMAGE_REF:-docker.io/library/wikiapiary-legacy:20260501-foreground}"
 ARCHIVE_PATH="${ARCHIVE_PATH:-/tmp/wikiapiary-legacy-20260501-foreground.oci.tar}"
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -53,11 +53,11 @@ EOF
 KUBECONFIG="${KUBECONFIG_PATH}" kubectl -n default wait --for=condition=Ready "pod/${DEBUG_POD}" --timeout=120s >/dev/null
 
 echo "Copying archive into debug pod"
-KUBECONFIG="${KUBECONFIG_PATH}" kubectl -n default cp "${ARCHIVE_PATH}" "${DEBUG_POD}:/tmp/wikiapiary-image.tar"
+KUBECONFIG="${KUBECONFIG_PATH}" kubectl -n default cp "${ARCHIVE_PATH}" "${DEBUG_POD}:/host/tmp/wikiapiary-image.tar"
 
 echo "Importing image into host containerd"
 KUBECONFIG="${KUBECONFIG_PATH}" kubectl -n default exec "${DEBUG_POD}" -- \
-  chroot /host sh -lc "k3s ctr images import /tmp/wikiapiary-image.tar && k3s ctr images ls | grep -F '${IMAGE_REF}'"
+  chroot /host sh -lc "k3s ctr images import /tmp/wikiapiary-image.tar && k3s crictl inspecti '${IMAGE_REF}' >/dev/null && rm /tmp/wikiapiary-image.tar"
 
 echo "Cleaning up debug pod"
 KUBECONFIG="${KUBECONFIG_PATH}" kubectl -n default delete pod "${DEBUG_POD}" --ignore-not-found >/dev/null

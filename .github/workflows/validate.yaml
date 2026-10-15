@@ -42,6 +42,9 @@ jobs:
       - name: Lint chart and values schema
         run: helm lint charts/canasta -f values/prod.yaml
 
+      - name: Validate production monitor retries
+        run: python3 scripts/test-smoke-production.py
+
       - name: Render production manifests
         run: helm template canasta-wikiapiary charts/canasta -f values/prod.yaml > /tmp/wikiapiary-rendered.yaml
 
