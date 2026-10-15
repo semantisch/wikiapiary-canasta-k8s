@@ -211,7 +211,9 @@ ingress:
     nameOverride: wikiapiary-edge
     namespace: bunkerweb
     className: nginx
-    backendServiceName: bunkerweb-external
+    # The shared privacy gateway forwards application traffic to BunkerWeb.
+    # Keep this ingress owned by WikiApiary's Argo CD application.
+    backendServiceName: dobriy-privacy
     backendServicePortName: http
     tls: true
     # Retained TLS/routing aliases. The primary host is added automatically, so

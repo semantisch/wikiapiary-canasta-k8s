@@ -226,6 +226,12 @@ def validate_rendered(
     edge = next(
         ingress for ingress in ingresses if ingress["metadata"].get("namespace") == "bunkerweb"
     )
+    for rule in edge["spec"]["rules"]:
+        for path in rule["http"]["paths"]:
+            if path["backend"]["service"] != {
+                "name": "dobriy-privacy", "port": {"name": "http"},
+            }:
+                raise RuntimeError("production edge must preserve the privacy gateway route")
     rendered_tls_hosts = {
         host
         for tls_entry in edge["spec"].get("tls", [])
