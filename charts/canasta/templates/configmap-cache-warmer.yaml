@@ -562,7 +562,7 @@ data:
             }
             $headers = parse_response_headers($http_response_header ?? []);
             $age = null;
-            if (!empty($headers['age'][0]) && ctype_digit((string)$headers['age'][0])) {
+            if (isset($headers['age'][0]) && ctype_digit((string)$headers['age'][0])) {
                 $age = (int)$headers['age'][0];
             }
             $last = [
@@ -641,7 +641,7 @@ data:
             foreach ($handles as $index => $handle) {
                 $headers = parse_response_headers($headerBuffers[$index]);
                 $age = null;
-                if (!empty($headers['age'][0]) && ctype_digit((string)$headers['age'][0])) {
+                if (isset($headers['age'][0]) && ctype_digit((string)$headers['age'][0])) {
                     $age = (int)$headers['age'][0];
                 }
                 $responseStatus = (int)curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
@@ -1044,7 +1044,7 @@ data:
             }
             $headers = parse_response_headers($http_response_header ?? []);
             $age = null;
-            if (!empty($headers['age'][0]) && ctype_digit((string)$headers['age'][0])) {
+            if (isset($headers['age'][0]) && ctype_digit((string)$headers['age'][0])) {
                 $age = (int)$headers['age'][0];
             }
             $last = [
@@ -1124,7 +1124,7 @@ data:
             foreach ($handles as $index => $handle) {
                 $headers = parse_response_headers($headerBuffers[$index]);
                 $age = null;
-                if (!empty($headers['age'][0]) && ctype_digit((string)$headers['age'][0])) {
+                if (isset($headers['age'][0]) && ctype_digit((string)$headers['age'][0])) {
                     $age = (int)$headers['age'][0];
                 }
                 $responseStatus = (int)curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
@@ -1461,7 +1461,7 @@ data:
             }
             $headers = parse_response_headers($http_response_header ?? []);
             $age = null;
-            if (!empty($headers['age'][0]) && ctype_digit((string)$headers['age'][0])) {
+            if (isset($headers['age'][0]) && ctype_digit((string)$headers['age'][0])) {
                 $age = (int)$headers['age'][0];
             }
             $last = [
