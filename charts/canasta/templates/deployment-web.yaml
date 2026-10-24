@@ -32,6 +32,10 @@ spec:
         {{- end }}
         checksum/php-sessions: {{ toJson .Values.phpSessions | sha256sum }}
     spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- $nodeSelector := .Values.web.nodeSelector | default .Values.nodeSelector }}
       {{- with $nodeSelector }}
       nodeSelector:

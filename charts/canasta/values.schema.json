@@ -1,12 +1,16 @@
 {
   "$schema": "https://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["site"],
+  "required": [
+    "site"
+  ],
   "properties": {
     "site": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["primaryHost"],
+      "required": [
+        "primaryHost"
+      ],
       "properties": {
         "primaryHost": {
           "type": "string",
@@ -44,6 +48,22 @@
             }
           }
         }
+      }
+    },
+    "imagePullSecrets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
       }
     }
   }

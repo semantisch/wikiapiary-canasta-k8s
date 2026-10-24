@@ -1,9 +1,12 @@
+imagePullSecrets:
+  - name: wikiapiary-ghcr-pull
+
 instance:
   id: wikiapiary-live
 
 image:
-  repository: wikiapiary-legacy
-  tag: "20260501-foreground"
+  repository: ghcr.io/semantisch/wikiapiary-canasta
+  tag: "php8.2.35-20261024@sha256:fe011c10139274df78f32c08ddaae6d13e2ac8d6381bbfcca8fb48573b7ffcfc"
   pullPolicy: IfNotPresent
 
 site:
@@ -90,7 +93,7 @@ cacheWarmer:
   suspend: false
   # Cache automation must be registry-backed: the application image is loaded
   # onto selected nodes and is not a reliable runtime for scheduled Jobs.
-  image: "docker.io/library/php:8.3.31-cli-alpine3.22@sha256:2f2e706ad96f295e2bc2b36dcc88e7413b7270fcd2b1532f3cfb4b6ebeca74ca"
+  image: "docker.io/library/php:8.3.36-cli-alpine3.23@sha256:af2cec36df60396ca5e168729f38e7c8c59548a0a655fbcc362853aeda18921d"
   imagePullPolicy: IfNotPresent
   requestBaseUrl: "http://varnish"
   warmFanoutHost: "varnish-headless"
@@ -280,6 +283,8 @@ configData:
       character-set-server = utf8mb4
       collation-server = utf8mb4_general_ci
       max_allowed_packet = 1G
+      # Bound runaway semantic queries; maintenance sessions may explicitly override.
+      max_statement_time = 60
       innodb_buffer_pool_size = 6G
       max_heap_table_size = 256M
       tmp_table_size = 256M

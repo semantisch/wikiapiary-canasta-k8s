@@ -1,4 +1,8 @@
-FROM ghcr.io/canastawiki/canasta:3.5.2
+FROM ghcr.io/canastawiki/canasta:3.5.2@sha256:c973e9d0d786dee6124b7a15b4eda1c2934a0a2c781f5db6dd6eca4a14fcb9c3
+
+USER root
+COPY image/legacy-foreground/patch-php.sh /usr/local/sbin/wikiapiary-patch-php
+RUN /bin/sh /usr/local/sbin/wikiapiary-patch-php
 
 # Bake the legacy production visual layer into the standard Canasta image.
 # The missing legacy extensions are copied into the built-in extension tree so

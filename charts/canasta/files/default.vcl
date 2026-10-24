@@ -20,6 +20,12 @@ acl purge {
 
 # vcl_recv is called whenever a request is received
 sub vcl_recv {
+    # This crawler caused a production outage by walking uncached revisions and
+    # semantic special pages. Reject it before PHP or the database is involved.
+    if (req.http.User-Agent ~ "(?i)meta-externalagent") {
+        return (synth(429, "Crawler request limit reached"));
+    }
+
     # Serve objects up to 2 minutes past their expiry if the backend
     # is slow to respond.
     set req.grace = 1h;
@@ -151,9 +157,16 @@ sub vcl_pipe {
 # Called if the cache has a copy of the page.
 sub vcl_hit {
         set req.http.X-WikiApiary-Cache = "HIT";
-        if (!obj.ttl > 0s) {
-            return (pass);
-        }
+        # Let Varnish deliver objects within grace and refresh in the background.
+        # Passing expired objects defeated grace precisely when PHP was overloaded.
+        return (deliver);
+}
+
+sub vcl_synth {
+    if (resp.status == 429) {
+        set resp.http.Retry-After = "3600";
+        set resp.http.Cache-Control = "no-store";
+    }
 }
 
 sub vcl_miss {

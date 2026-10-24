@@ -24,6 +24,10 @@ spec:
         checksum/env-config: {{ .Values.configData.env | default dict | toJson | sha256sum }}
         checksum/php-sessions: {{ toJson .Values.phpSessions | sha256sum }}
     spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- $nodeSelector := .Values.jobrunner.nodeSelector | default .Values.nodeSelector }}
       {{- with $nodeSelector }}
       nodeSelector:
