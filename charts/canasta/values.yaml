@@ -1,3 +1,5 @@
+imagePullSecrets: []
+
 # Default values for the Canasta Helm chart.
 
 # Instance identity
