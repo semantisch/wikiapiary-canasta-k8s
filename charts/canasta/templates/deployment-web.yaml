@@ -30,6 +30,7 @@ spec:
         {{- if .Values.extensionOverrides.enabled }}
         checksum/extension-overrides: {{ printf "%s%s" (.Files.Get "files/wikiapiary/Stats.php") (.Files.Get "files/wikiapiary/stats-snapshot.json") | sha256sum }}
         {{- end }}
+        checksum/php-runtime: {{ include (print $.Template.BasePath "/configmap-php-runtime.yaml") . | sha256sum }}
         checksum/php-sessions: {{ toJson .Values.phpSessions | sha256sum }}
     spec:
       {{- with .Values.imagePullSecrets }}
@@ -214,6 +215,10 @@ spec:
               mountPath: /warm-cache
             - name: override-bin
               mountPath: /override-bin
+            - name: php-runtime
+              mountPath: /etc/php/8.2/fpm/pool.d/zz-wikiapiary-runtime.conf
+              subPath: zz-wikiapiary-runtime.conf
+              readOnly: true
             {{- if .Values.phpSessions.enabled }}
             - name: php-sessions
               mountPath: /etc/php/8.2/apache2/conf.d/99-wikiapiary-sessions.ini
@@ -281,6 +286,9 @@ spec:
         - name: cache-warm
           persistentVolumeClaim:
             claimName: {{ include "canasta.fullname" . }}-cache-warm
+        - name: php-runtime
+          configMap:
+            name: {{ include "canasta.fullname" . }}-php-runtime
         {{- if .Values.phpSessions.enabled }}
         - name: php-sessions
           configMap:
