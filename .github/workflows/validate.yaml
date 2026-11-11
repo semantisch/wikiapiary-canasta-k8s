@@ -45,6 +45,9 @@ jobs:
       - name: Validate production monitor retries
         run: python3 scripts/test-smoke-production.py
 
+      - name: Validate scoped BunkerWeb discovery
+        run: python3 operations/bunkerweb-controller/test_scope.py
+
       - name: Render production manifests
         run: helm template canasta-wikiapiary charts/canasta -f values/prod.yaml > /tmp/wikiapiary-rendered.yaml
 

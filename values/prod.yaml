@@ -198,19 +198,30 @@ ingress:
   annotations:
     bunkerweb.io/KEEP_UPSTREAM_HEADERS: "Content-Security-Policy Permissions-Policy X-Frame-Options Cache-Control Referrer-Policy"
     bunkerweb.io/REVERSE_PROXY_HEADERS: "X-Forwarded-Proto $http_x_forwarded_proto;X-Forwarded-Protocol $http_x_forwarded_proto;X-Forwarded-Port 443"
-    bunkerweb.io/REVERSE_PROXY_INTERCEPT_ERRORS: "yes"
+    bunkerweb.io/REVERSE_PROXY_INTERCEPT_ERRORS: "no"
     bunkerweb.io/SECURITY_MODE: "block"
     bunkerweb.io/USE_ANTIBOT: "no"
     bunkerweb.io/USE_BAD_BEHAVIOR: "no"
-    bunkerweb.io/USE_BLACKLIST: "no"
+    bunkerweb.io/USE_BLACKLIST: "yes"
+    # Explicit UA and scanner-path rules, without shared-IP or third-party lists.
+    bunkerweb.io/BLACKLIST_COMMUNITY_LISTS: ""
+    bunkerweb.io/BLACKLIST_RDNS: ""
+    bunkerweb.io/BLACKLIST_USER_AGENT: '(?i)(?:GPTBot|ClaudeBot|Bytespider|CCBot|Amazonbot|Diffbot|PetalBot|meta-externalagent|FacebookBot|sqlmap|Nikto|Nuclei|zgrab|masscan)'
+    bunkerweb.io/BLACKLIST_URI: '^/(?:\.env(?:[./]|$)|\.git(?:/|$)|wp-(?:admin|includes|content)(?:/|$)|wp-login\.php$|xmlrpc\.php$|vendor/phpunit(?:/|$))'
+    bunkerweb.io/MAX_CLIENT_SIZE: "100m"
+    bunkerweb.io/MODSECURITY_REQ_BODY_NO_FILES_LIMIT: "8m"
+    bunkerweb.io/MODSECURITY_SEC_AUDIT_LOG_PARTS: "AHZ"
     bunkerweb.io/USE_DNSBL: "no"
     # The upstream load balancer currently presents one shared source IP. A
     # per-IP connection cap would therefore throttle unrelated visitors.
     bunkerweb.io/USE_LIMIT_CONN: "no"
     bunkerweb.io/USE_LIMIT_REQ: "no"
     bunkerweb.io/USE_MODSECURITY: "yes"
-    bunkerweb.io/USE_MODSECURITY_CRS: "no"
+    bunkerweb.io/USE_MODSECURITY_CRS: "yes"
+    bunkerweb.io/MODSECURITY_CRS_VERSION: "4"
     bunkerweb.io/USE_WHITELIST: "no"
+  bunkerweb:
+    enabled: true
   edge:
     enabled: true
     nameOverride: wikiapiary-edge
@@ -226,7 +237,8 @@ ingress:
     tlsHosts:
       - wikiapiary.dobriy.ai
     tlsSecretName: canasta-wikiapiary-tls
-    annotations: {}
+    annotations:
+      nginx.ingress.kubernetes.io/proxy-body-size: "100m"
   certManager:
     enabled: true
     issuer: letsencrypt-prod

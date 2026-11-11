@@ -205,6 +205,8 @@ ingress:
   tlsHosts: []
   tlsSecretName: ""
   annotations: {}
+  bunkerweb:
+    enabled: false
   edge:
     enabled: false
     nameOverride: ""

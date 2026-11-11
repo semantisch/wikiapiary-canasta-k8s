@@ -1,0 +1,67 @@
+spec:
+  template:
+    spec:
+      initContainers:
+      - name: scope-discovery
+        image: docker.io/bunkerity/bunkerweb-autoconf:1.6.8
+        command:
+        - python3
+        - /patch/patch.py
+        volumeMounts:
+        - name: discovery-patch
+          mountPath: /patch
+          readOnly: true
+        - name: patched-controller
+          mountPath: /patched
+        securityContext:
+          runAsUser: 101
+          runAsGroup: 101
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            memory: 128Mi
+      securityContext:
+        fsGroup: 101
+      volumes:
+      - name: discovery-patch
+        configMap:
+          name: bunkerweb-scoped-discovery
+      - name: patched-controller
+        emptyDir: {}
+      containers:
+      - name: bunkerweb-controller
+        volumeMounts:
+        - name: patched-controller
+          mountPath: /usr/share/bunkerweb/autoconf/controllers/KubernetesController.py
+          subPath: KubernetesController.py
+          readOnly: true
+        - name: patched-controller
+          mountPath: /usr/share/bunkerweb/autoconf/controllers/IngressController.py
+          subPath: IngressController.py
+          readOnly: true
+        - name: patched-controller
+          mountPath: /usr/share/bunkerweb/autoconf/controllers/namespace_scope.py
+          subPath: namespace_scope.py
+          readOnly: true
+        resources:
+          requests:
+            cpu: 100m
+            memory: 512Mi
+          limits:
+            memory: 2Gi
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - dobriyai-hosting-15
