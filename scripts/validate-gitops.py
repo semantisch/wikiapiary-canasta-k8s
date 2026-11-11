@@ -394,7 +394,7 @@ def validate_rendered(
     }
     for name in ("skin.json", "Foreground.skin.php", "wikiapiary.css", "wikiapiary-navigation.js", "en.json"):
         relative = "i18n/en.json" if name == "en.json" else name
-        expected = f"/var/www/mediawiki/w/skins/foreground/{relative}"
+        expected = f"/var/www/mediawiki/w/user-skins/foreground/{relative}"
         if mounted_paths.get(name) != expected:
             raise RuntimeError(f"Native Foreground file {name} must be mounted at {expected}")
     checks = {
