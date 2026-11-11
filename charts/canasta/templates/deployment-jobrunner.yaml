@@ -19,10 +19,16 @@ spec:
         {{- include "canasta.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: jobrunner
       annotations:
-        checksum/web-config: {{ .Values.configData.web | toJson | sha256sum }}
+        checksum/web-config: {{ include (print $.Template.BasePath "/configmap-web.yaml") . | sha256sum }}
         checksum/site-hosts: {{ dict "server" (include "canasta.siteServer" .) "hosts" (include "canasta.hosts" .) | toJson | sha256sum }}
         checksum/env-config: {{ .Values.configData.env | default dict | toJson | sha256sum }}
-        checksum/php-sessions: {{ toJson .Values.phpSessions | sha256sum }}
+        {{- if .Values.foregroundModern.enabled }}
+        checksum/foreground-modern: {{ (.Files.Glob "files/foreground/*").AsConfig | sha256sum }}
+        {{- end }}
+        {{- if .Values.extensionOverrides.enabled }}
+        checksum/extension-overrides: {{ printf "%s%s" (.Files.Get "files/wikiapiary/Stats.php") (.Files.Get "files/wikiapiary/stats-snapshot.json") | sha256sum }}
+        {{- end }}
+        checksum/php-sessions: {{ include (print $.Template.BasePath "/configmap-php-sessions.yaml") . | sha256sum }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -69,6 +75,7 @@ spec:
           command: ["/bin/bash", "-c"]
           args:
             - |
+              /create-symlinks.sh
               mkdir -p /mediawiki/cache/main && chown -R www-data:www-data /mediawiki/cache || true
               while true; do
                 php maintenance/runJobs.php {{ .Values.jobrunner.runJobsArgs }}
@@ -127,6 +134,28 @@ spec:
               mountPath: /mediawiki/images
             - name: cache
               mountPath: /mediawiki/cache
+            - name: user-extensions
+              mountPath: /var/www/mediawiki/w/user-extensions
+            {{- if .Values.extensionOverrides.enabled }}
+            - name: extension-overrides
+              mountPath: /var/www/mediawiki/w/user-extensions/WikiApiary/includes/data/query/Stats.php
+              subPath: Stats.php
+            - name: extension-overrides
+              mountPath: /var/www/mediawiki/w/user-extensions/WikiApiary/includes/data/query/stats-snapshot.json
+              subPath: stats-snapshot.json
+            {{- end }}
+            {{- if .Values.foregroundModern.enabled }}
+            {{- range $path, $_ := .Files.Glob "files/foreground/*" }}
+            - name: foreground-modern
+              mountPath: /var/www/mediawiki/w/user-skins/foreground/{{ if eq (base $path) "en.json" }}i18n/{{ end }}{{ base $path }}
+              subPath: {{ base $path }}
+              readOnly: true
+            {{- end }}
+            {{- end }}
+            - name: user-skins
+              mountPath: /var/www/mediawiki/w/user-skins
+            - name: public-assets
+              mountPath: /mediawiki/public_assets
             - name: cache-warm
               mountPath: /warm-cache
             {{- if .Values.phpSessions.enabled }}
@@ -150,6 +179,25 @@ spec:
             claimName: {{ include "canasta.fullname" . }}-images
         - name: cache
           emptyDir: {}
+        - name: user-extensions
+          persistentVolumeClaim:
+            claimName: {{ include "canasta.fullname" . }}-extensions
+        {{- if .Values.extensionOverrides.enabled }}
+        - name: extension-overrides
+          configMap:
+            name: {{ include "canasta.fullname" . }}-extension-overrides
+        {{- end }}
+        {{- if .Values.foregroundModern.enabled }}
+        - name: foreground-modern
+          configMap:
+            name: {{ include "canasta.fullname" . }}-foreground-modern
+        {{- end }}
+        - name: user-skins
+          persistentVolumeClaim:
+            claimName: {{ include "canasta.fullname" . }}-skins
+        - name: public-assets
+          persistentVolumeClaim:
+            claimName: {{ include "canasta.fullname" . }}-public-assets
         - name: cache-warm
           persistentVolumeClaim:
             claimName: {{ include "canasta.fullname" . }}-cache-warm

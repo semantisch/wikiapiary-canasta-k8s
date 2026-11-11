@@ -5,8 +5,8 @@ instance:
   id: wikiapiary-live
 
 image:
-  repository: ghcr.io/semantisch/wikiapiary-canasta
-  tag: "php8.2.35-20261024@sha256:fe011c10139274df78f32c08ddaae6d13e2ac8d6381bbfcca8fb48573b7ffcfc"
+  repository: ghcr.io/canastawiki/canasta
+  tag: "3.5.34@sha256:4f80bcc051a55cd58a28a53406494bb0ada0907292444d10394d453b89b75a0a"
   pullPolicy: IfNotPresent
 
 site:

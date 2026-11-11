@@ -12,7 +12,27 @@ data:
   {{- $siteServer := include "canasta.siteServer" . }}
   {{- $siteHostsCsv := include "canasta.hostsCsv" . }}
   {{- range $key, $value := .Values.configData.web }}
+  {{- $rendered := $value | replace "__PRIMARY_HOST__" $primaryHost | replace "__SITE_SERVER__" $siteServer | replace "__SITE_HOSTS_CSV__" $siteHostsCsv }}
+  {{- if eq $key "wikis.yaml" }}
+  {{- $config := $rendered | fromYaml }}
+  {{- $aliases := list }}
+  {{- range ($config.wikis | default list) }}
+  {{- if eq .url $primaryHost }}
+  {{- $wiki := . }}
+  {{- range (include "canasta.hosts" $ | fromJsonArray) }}
+  {{- if ne . $primaryHost }}
+  {{- $alias := deepCopy $wiki }}
+  {{- $_ := set $alias "url" . }}
+  {{- $aliases = append $aliases $alias }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+  {{- /* Canasta maps URLs to IDs and keeps the last entry as the CLI origin. */}}
+  {{- $_ := set $config "wikis" (concat $aliases ($config.wikis | default list)) }}
+  {{- $rendered = $config | toYaml }}
+  {{- end }}
   {{ $key }}: |
-    {{- $value | replace "__PRIMARY_HOST__" $primaryHost | replace "__SITE_SERVER__" $siteServer | replace "__SITE_HOSTS_CSV__" $siteHostsCsv | nindent 4 }}
+    {{- $rendered | nindent 4 }}
   {{- end }}
 {{- end }}
