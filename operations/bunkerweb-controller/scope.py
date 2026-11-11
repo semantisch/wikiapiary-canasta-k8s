@@ -37,3 +37,15 @@ def watchers(core, networking, namespaces):
             method = getattr(api, f"list_namespaced_{noun}" if namespace else f"list_{noun}_for_all_namespaces")
             result[f"{resource}/{namespace or '*'}"] = watcher(method, namespace)
     return result
+
+
+def seed_watch(method, event_watcher):
+    """Start at the collection cursor, not an old object's resource version.
+
+    The controller rebuilds all configuration on RESYNC, so only one item is
+    needed to obtain a consistent current collection cursor. This also catches
+    deletions missed while a watch cursor was expired.
+    """
+    snapshot = method(watch=False, limit=1)
+    event_watcher.resource_version = snapshot.metadata.resource_version
+    return {"type": "RESYNC"}

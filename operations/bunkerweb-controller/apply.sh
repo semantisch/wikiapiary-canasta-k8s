@@ -7,4 +7,6 @@ kubectl "$@" -n bunkerweb create configmap bunkerweb-scoped-discovery \
   --dry-run=client -o yaml | kubectl "$@" apply -f -
 kubectl "$@" -n bunkerweb patch deployment controller-bunkerweb \
   --type=strategic --patch-file "$patch_dir/deployment-patch.yaml"
+# ConfigMap content changes require the init container to run again.
+kubectl "$@" -n bunkerweb rollout restart deployment/controller-bunkerweb
 kubectl "$@" -n bunkerweb rollout status deployment/controller-bunkerweb --timeout=180s

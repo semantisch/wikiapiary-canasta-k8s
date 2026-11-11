@@ -89,6 +89,52 @@ upload staging and logout. Validation uses a dedicated temporary account and
 its own user subpage. Remove the test content, staged files and account access
 after public validation. Do not use production administrator credentials.
 
+## Public rollout results, 11 November 2026
+
+[PR 72](https://github.com/semantisch/wikiapiary-canasta-k8s/pull/72) deployed
+commit `e10d94280cea0c30ecbbcd003d2368d3a99b7d5e`. Argo CD reported Synced and
+Healthy, and both BunkerWeb replicas passed configuration tests and reloaded.
+
+- All 39 HTTP checks passed through each public HTTPS hostname.
+- All nine authenticated checks passed on each hostname. The dev-host upload
+  staged a valid 10,832,793-byte PNG through ingress-nginx, the privacy gateway,
+  BunkerWeb and MediaWiki. No file was published.
+- Homepage cache HIT, public cache headers, API host identity and cache-worker
+  health passed on both hosts. Logged-in responses used PASS and no-store.
+- Desktop and mobile checks loaded the homepage, logo, footer images,
+  ResourceLoader, login and exact-title search. Reading with JavaScript disabled
+  remained available. No homepage image failures or horizontal overflow occurred.
+- Public browser login succeeded, including rejecting optional analytics.
+- The controller remained near 100 MiB with no restarts after the namespace
+  patch. Watches now seed from the collection resource version and resume after
+  normal timeouts, avoiding repeated initial-object replay.
+
+Two pre-existing application problems were reproduced through a direct Caddy
+port-forward, bypassing BunkerWeb and the privacy gateway:
+
+1. Full-text `Special:Search` for `MediaWiki` throws a
+   `Wikimedia\Assert\PreconditionException`. Imported rows contain reserved
+   namespace prefixes inside namespace 0, for example
+   `Extension:Semantic_MediaWiki`. Core SQL search cannot treat those titles as
+   proper page identities. The old edge error interception hid the 500 behind
+   a generic 404. This requires a separate, backed-up namespace-data repair.
+2. `/wiki/WikiApiary` references `Chart` without loading its definition. The
+   resulting chart error also occurs directly at the backend. The search error
+   page additionally triggers an OOUI `Widget not found` error.
+
+These findings mean this rollout does not establish that every existing wiki
+function is healthy. They are not WAF false positives. No imported content was
+rewritten as part of the firewall change.
+
+The hosting control plane also had intermittent API outages during the work.
+Validation used an available control-plane peer without modifying the user's
+kubeconfig. A transient run of canary POST checks received 503 responses during
+an outage. The repeated complete canary run and both public runs subsequently
+passed. Broad hosting-cluster remediation is outside this change.
+
+Operational evidence is under
+`/srv/workspace/users/1000/wikiapiary-bunkerweb-20261111/evidence`.
+
 ## Rollback
 
 Revert the WikiApiary policy commit and let Argo CD reconcile. Leave the

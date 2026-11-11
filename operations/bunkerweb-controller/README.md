@@ -12,6 +12,9 @@ Upstream 1.6.8 filters `NAMESPACES` after fetching cluster-wide snapshots and
 opens cluster-wide watches without a read timeout. This patch uses namespaced,
 paginated snapshots and namespaced watches with bounded network waits. It
 preserves the configured namespaces and all existing ingress policy decisions.
+Each watch starts from the collection resource version, triggers a configuration
+resync, and resumes from its cursor after normal timeouts. Expired cursors cause
+a fresh snapshot so missed deletions are reconciled.
 After applying it, the controller successfully reconciled both proxies and
 remained near 100 MiB during validation.
 
