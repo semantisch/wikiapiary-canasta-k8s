@@ -9,6 +9,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import urllib.robotparser
 
 
 def main() -> None:
@@ -33,7 +34,7 @@ def main() -> None:
     opener = urllib.request.build_opener(CanaryRedirect())
     results = []
 
-    def check(name, path, *, data=None, status=200, ua=None, json_key=None):
+    def check(name, path, *, data=None, status=200, ua=None, json_key=None, robots_for=None):
         headers = {"User-Agent": ua or "WikiApiary-Firewall-Validation/1.0 (+https://dev.wikiapiary.com)"}
         if args.routing_host:
             headers["Host"] = args.routing_host
@@ -52,6 +53,10 @@ def main() -> None:
                     passed = passed and json_key in json.loads(body)
                 except ValueError:
                     passed = False
+            if robots_for and actual == 200:
+                robots = urllib.robotparser.RobotFileParser()
+                robots.parse(body.decode("utf-8").splitlines())
+                passed = passed and robots.can_fetch(robots_for, args.origin.rstrip("/") + "/wiki/Main_Page")
             results.append({"case": name, "status": actual, "expected": status, "passed": passed})
             print(json.dumps(results[-1]), flush=True)
         time.sleep(0.25)
@@ -92,11 +97,25 @@ def main() -> None:
     check("unknown API action preserves JSON", "/w/api.php?action=notarealaction&format=json", json_key="error")
     check("missing article preserves 404", "/wiki/FirewallValidationNonexistent20261111", status=404)
 
+    crawler_agents = (
+        "Googlebot/2.1", "bingbot/2.0", "DuckDuckBot/1.1", "Applebot/0.1",
+        "YandexBot/3.0", "Baiduspider/2.0", "PetalBot/1.0",
+        "GPTBot/1.4", "OAI-SearchBot/1.4", "ChatGPT-User/1.0",
+        "ClaudeBot/1.0", "Claude-SearchBot/1.0", "Claude-User/1.0",
+        "Amazonbot/0.1", "CCBot/2.0", "Bytespider", "Diffbot/0.1",
+        "meta-externalagent/1.1", "FacebookBot/1.0",
+    )
+    for ua in crawler_agents:
+        check("crawler article " + ua, "/wiki/Main_Page", ua=ua)
+        check("crawler robots policy " + ua, "/robots.txt", ua=ua, robots_for=ua)
+    for ua in ("WikiApiary/2.0 (+https://dev.wikiapiary.com; contact: wikiapiary@dobriy.ai)", "curl/8.5", "Googlebot/2.1", "GPTBot/1.4", "OAI-SearchBot/1.4", "ChatGPT-User/1.0"):
+        check("ordinary API client " + ua.split("/")[0], "/w/api.php?action=query&meta=siteinfo&format=json", ua=ua, json_key="query")
+
     if not args.baseline:
-        for ua in ("GPTBot/1.4", "ClaudeBot/1.0", "Bytespider", "sqlmap/1.8", "Nuclei/3.0"):
-            check("blocked bot " + ua, "/wiki/Main_Page", ua=ua, status=403)
-        for ua in ("WikiApiary/2.0 (+https://dev.wikiapiary.com; contact: wikiapiary@dobriy.ai)", "curl/8.5", "Googlebot/2.1"):
-            check("ordinary API client " + ua.split("/")[0], "/w/api.php?action=query&meta=siteinfo&format=json", ua=ua, json_key="query")
+        for ua in ("sqlmap/1.8", "Nikto/2.5", "Nuclei/3.0", "zgrab/0.1", "masscan/1.3"):
+            check("blocked scanner " + ua, "/wiki/Main_Page", ua=ua, status=403)
+        for ua in ("Googlebot/2.1", "GPTBot/1.4", "OAI-SearchBot/1.4", "ChatGPT-User/1.0"):
+            check("crawler UA does not bypass WAF " + ua, "/w/api.php?" + urllib.parse.urlencode({"action": "query", "meta": "siteinfo", "format": "json", "waf_probe": "<script>alert(1)</script>"}), ua=ua, status=403)
         for path in ("/.env", "/.git/config", "/wp-login.php", "/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php"):
             check("scanner path " + path, path, status=403)
         for name, value in (("XSS", "<script>alert(1)</script>"), ("SQL injection", "1' OR '1'='1' --")):

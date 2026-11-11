@@ -206,7 +206,8 @@ ingress:
     # Explicit UA and scanner-path rules, without shared-IP or third-party lists.
     bunkerweb.io/BLACKLIST_COMMUNITY_LISTS: ""
     bunkerweb.io/BLACKLIST_RDNS: ""
-    bunkerweb.io/BLACKLIST_USER_AGENT: '(?i)(?:GPTBot|ClaudeBot|Bytespider|CCBot|Amazonbot|Diffbot|PetalBot|meta-externalagent|FacebookBot|sqlmap|Nikto|Nuclei|zgrab|masscan)'
+    # Search engines and AI crawlers are welcome, with normal WAF inspection.
+    bunkerweb.io/BLACKLIST_USER_AGENT: '(?i)(?:sqlmap|Nikto|Nuclei|zgrab|masscan)'
     bunkerweb.io/BLACKLIST_URI: '^/(?:\.env(?:[./]|$)|\.git(?:/|$)|wp-(?:admin|includes|content)(?:/|$)|wp-login\.php$|xmlrpc\.php$|vendor/phpunit(?:/|$))'
     bunkerweb.io/MAX_CLIENT_SIZE: "100m"
     bunkerweb.io/MODSECURITY_REQ_BODY_NO_FILES_LIMIT: "8m"
