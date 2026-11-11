@@ -12,14 +12,18 @@ Hetzner load balancer → ingress-nginx → privacy gateway → BunkerWeb
 ## Policy
 
 The production ingress enables BunkerWeb's blacklist and OWASP CRS 4 in
-blocking mode. The reviewed User-Agent list blocks bulk crawlers including
-GPTBot, ClaudeBot, Bytespider, CCBot, Amazonbot and common scanning tools.
+blocking mode. The User-Agent list blocks scanning tools: sqlmap, Nikto,
+Nuclei, zgrab and masscan. Search engines and AI crawlers are allowed,
+including Google, Bing, DuckDuckGo, Apple, OpenAI and Anthropic clients.
 Scanner paths such as `/.env`, `/.git/config` and `/wp-login.php` are denied.
 There are no third-party IP, ASN or reverse-DNS blocklists in this policy.
 
 MediaWiki APIs, search, feeds, ResourceLoader and ordinary clients remain
-accessible. WikiApiary's crawler is not blocked. Search-engine User-Agent
-strings are not treated as authentication or granted a WAF bypass.
+accessible. WikiApiary's crawler is not blocked. Crawler User-Agent strings
+are not treated as authentication or granted a WAF bypass. OpenAI's
+GPTBot, OAI-SearchBot and ChatGPT-User receive ordinary request inspection.
+The existing robots.txt permits public articles while excluding internal
+MediaWiki routes and special pages. It has no crawler-specific exclusions.
 
 Custom rules are generated separately for every accepted hostname, including
 hosts added during a primary-host cutover. They only exclude content attack
@@ -70,7 +74,9 @@ That shared Helm installation is managed separately from WikiApiary's Argo CD
 application.
 
 The read-only regression suite exercises normal MediaWiki requests, legitimate
-code examples, blocked bots and injection probes. Run sequentially:
+code examples, search and AI crawler access, robots.txt permissions, blocked
+scanners and injection probes. Spoofed crawler names must not bypass the WAF.
+Run sequentially:
 
 ```bash
 python3 scripts/smoke-firewall.py https://dev.wikiapiary.com --ipv4
@@ -90,6 +96,13 @@ its own user subpage. Remove the test content, staged files and account access
 after public validation. Do not use production administrator credentials.
 
 ## Public rollout results, 11 November 2026
+
+The initial rollout below used a broader crawler blacklist. The follow-up
+policy removes search and AI crawlers from that blacklist, preserving scanner
+blocking and all request inspection. The expanded regression suite checks
+article access and robots.txt permissions for 19 crawler User-Agent strings,
+including GPTBot, OAI-SearchBot and ChatGPT-User, and checks attack denial
+with crawler names.
 
 [PR 72](https://github.com/semantisch/wikiapiary-canasta-k8s/pull/72) deployed
 commit `e10d94280cea0c30ecbbcd003d2368d3a99b7d5e`. Argo CD reported Synced and
