@@ -397,6 +397,24 @@ def validate_rendered(
         expected = f"/var/www/mediawiki/w/user-skins/foreground/{relative}"
         if mounted_paths.get(name) != expected:
             raise RuntimeError(f"Native Foreground file {name} must be mounted at {expected}")
+    farm_wikis = yaml.safe_load(web_config["wikis.yaml"])["wikis"]
+    farm_routes = {wiki["url"]: wiki["id"] for wiki in farm_wikis}
+    if any(farm_routes.get(host) != "main" for host in hosts):
+        raise RuntimeError("Canasta must route every accepted hostname to the main wiki")
+    canonical_wikis = {wiki["id"]: wiki for wiki in farm_wikis}
+    if canonical_wikis["main"]["url"] != primary:
+        raise RuntimeError("Canasta CLI must retain the primary hostname as its origin")
+
+    jobrunner = find_one(documents, "Deployment", "-jobrunner")
+    job_container = jobrunner["spec"]["template"]["spec"]["containers"][0]
+    job_mounts = {mount["mountPath"] for mount in job_container["volumeMounts"]}
+    for mount in web_container["volumeMounts"]:
+        if mount["name"] in {"user-extensions", "user-skins", "foreground-modern", "extension-overrides"}:
+            if mount["mountPath"] not in job_mounts:
+                raise RuntimeError("Web and jobrunner must load the same user extensions and skins")
+    if "/create-symlinks.sh" not in "\n".join(job_container["args"]):
+        raise RuntimeError("Jobrunner must initialize Canasta extension and skin links")
+
     checks = {
         "wikis.yaml primary URL": (web_config.get("wikis.yaml", ""), f"url: {primary}"),
         "MediaWiki canonical server": (

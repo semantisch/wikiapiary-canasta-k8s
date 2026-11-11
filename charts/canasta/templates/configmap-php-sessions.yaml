@@ -10,6 +10,7 @@ data:
   99-wikiapiary-sessions.ini: |
     session.save_handler = redis
     session.save_path = "tcp://{{ .Values.phpSessions.redisHost }}:{{ .Values.phpSessions.redisPort }}?database={{ .Values.phpSessions.redisDatabase }}&prefix={{ .Values.phpSessions.redisPrefix }}"
+    session.upload_progress.enabled = 0
     session.use_strict_mode = 1
     session.cookie_httponly = 1
     session.cookie_samesite = Lax
