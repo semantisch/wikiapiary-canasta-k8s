@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from collections.abc import Iterable
 from pathlib import Path
 import re
@@ -297,9 +298,38 @@ def validate_rendered(
     caddy_config = find_one(documents, "ConfigMap", "-caddy-config").get("data", {})
     varnish_config = find_one(documents, "ConfigMap", "-varnish-config").get("data", {})
     foreground_config = find_one(documents, "ConfigMap", "-foreground-modern").get("data", {})
-    foreground_css = foreground_config.get("wikiapiary-modern.css", "")
-    foreground_js = foreground_config.get("wikiapiary-modern.js", "")
-    for name, content in web_config.items():
+    foreground_css = foreground_config.get("wikiapiary.css", "")
+    foreground_js = foreground_config.get("wikiapiary-navigation.js", "")
+    foreground_template = foreground_config.get("Foreground.skin.php", "")
+    foreground_manifest = json.loads(foreground_config["skin.json"])
+    foreground_messages = json.loads(foreground_config["en.json"])
+    modules = foreground_manifest["ResourceModules"]
+    skin_options = foreground_manifest["ValidSkinNames"]["foreground"]["args"][0]
+    # A general module in addModuleStyles is rejected by MediaWiki. Require the
+    # design in the skin's native, styles-only bundle so it works before JS.
+    if skin_options["styles"] != ["skins.foreground.styles"]:
+        raise RuntimeError("Foreground must load its native stylesheet bundle in the page head")
+    styles = modules["skins.foreground.styles"]
+    if styles["styles"][-1] != "wikiapiary.css" or any(
+        key in styles for key in ("scripts", "packageFiles", "dependencies")
+    ):
+        raise RuntimeError("WikiApiary presentation must be native CSS, independent of JavaScript")
+    for name, module in modules.items():
+        if name != "skins.foreground.styles" and "styles" in module:
+            raise RuntimeError(f"Foreground scripts must not carry presentation CSS: {name}")
+    for message in ("wikiapiary-tools-label", "wikiapiary-account-label"):
+        if not foreground_messages.get(message) or f"wfMessage( '{message}' )->escaped()" not in foreground_template:
+            raise RuntimeError(f"Foreground must render its accessible labels in PHP: {message}")
+    if any(marker in foreground_js for marker in ("createElement", "appendChild", "textContent", "mw.loader")):
+        raise RuntimeError("Foreground navigation JS must not construct the page's appearance")
+    if modules["skins.foreground.js"].get("scripts") != ["wikiapiary-navigation.js"]:
+        raise RuntimeError("Foreground navigation must not depend on the broken Foundation plugins")
+    if "onclick=" in foreground_template:
+        raise RuntimeError("Foreground must not bind duplicate inline and module click handlers")
+    if "skins.foreground.wikiapiary" in web_config.get("settings--global--03Foreground.php", ""):
+        raise RuntimeError("The old asynchronous Foreground presentation hook must be removed")
+
+    for name, content in {**web_config, "Foreground.skin.php": foreground_template}.items():
         if not name.endswith(".php"):
             continue
         with tempfile.NamedTemporaryFile(
@@ -331,7 +361,7 @@ def validate_rendered(
         )
     if lint.returncode != 0:
         raise RuntimeError(
-            "rendered Foreground enhancement JavaScript failed syntax validation:\n"
+            "rendered Foreground navigation JavaScript failed syntax validation:\n"
             f"{lint.stdout}{lint.stderr}"
         )
 
@@ -347,22 +377,26 @@ def validate_rendered(
     ]
     if missing_foreground:
         raise RuntimeError(
-            f"Foreground enhancement checks failed: {', '.join(missing_foreground)}"
+            f"Native Foreground presentation checks failed: {', '.join(missing_foreground)}"
         )
-    if "aria-label" not in foreground_js or "aria-haspopup" not in foreground_js:
-        raise RuntimeError("Foreground navigation enhancement must retain accessible labels")
+    if "aria-label" not in foreground_template or "aria-haspopup" not in foreground_template:
+        raise RuntimeError("Foreground's PHP template must retain accessible navigation labels")
 
     web_deployment = find_one(documents, "Deployment", "-web")
     web_pod_spec = web_deployment["spec"]["template"]["spec"]
     web_container = next(
         container for container in web_pod_spec["containers"] if container.get("name") == "web"
     )
-    mounted_subpaths = {
-        mount.get("subPath") for mount in web_container.get("volumeMounts", [])
+    mounted_paths = {
+        mount.get("subPath"): mount.get("mountPath")
+        for mount in web_container.get("volumeMounts", [])
+        if mount.get("name") == "foreground-modern"
     }
-    required_foreground_mounts = {"wikiapiary-modern.css", "wikiapiary-modern.js"}
-    if not required_foreground_mounts.issubset(mounted_subpaths):
-        raise RuntimeError("web deployment does not mount both Foreground enhancement assets")
+    for name in ("skin.json", "Foreground.skin.php", "wikiapiary.css", "wikiapiary-navigation.js", "en.json"):
+        relative = "i18n/en.json" if name == "en.json" else name
+        expected = f"/var/www/mediawiki/w/skins/foreground/{relative}"
+        if mounted_paths.get(name) != expected:
+            raise RuntimeError(f"Native Foreground file {name} must be mounted at {expected}")
     checks = {
         "wikis.yaml primary URL": (web_config.get("wikis.yaml", ""), f"url: {primary}"),
         "MediaWiki canonical server": (
@@ -381,13 +415,9 @@ def validate_rendered(
             web_config.get("settings--global--04LegacyExtensions.php", ""),
             f"?: '{primary}'",
         ),
-        "Foreground ResourceLoader styles": (
+        "Foreground native skin selection": (
             web_config.get("settings--global--03Foreground.php", ""),
-            "addModuleStyles( 'skins.foreground.wikiapiary' )",
-        ),
-        "Foreground ResourceLoader scripts": (
-            web_config.get("settings--global--03Foreground.php", ""),
-            "addModules( 'skins.foreground.wikiapiary' )",
+            '$wgDefaultSkin = "foreground";',
         ),
         "Varnish requested-host handoff": (
             varnish_config.get("default.vcl", ""),

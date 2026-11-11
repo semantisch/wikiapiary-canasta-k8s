@@ -25,7 +25,7 @@ spec:
         checksum/site-hosts: {{ dict "server" (include "canasta.siteServer" .) "hosts" (include "canasta.hosts" .) | toJson | sha256sum }}
         checksum/env-config: {{ .Values.configData.env | default dict | toJson | sha256sum }}
         {{- if .Values.foregroundModern.enabled }}
-        checksum/foreground-modern: {{ printf "%s%s" (.Files.Get "files/wikiapiary/wikiapiary-modern.css") (.Files.Get "files/wikiapiary/wikiapiary-modern.js") | sha256sum }}
+        checksum/foreground-modern: {{ (.Files.Glob "files/foreground/*").AsConfig | sha256sum }}
         {{- end }}
         {{- if .Values.extensionOverrides.enabled }}
         checksum/extension-overrides: {{ printf "%s%s" (.Files.Get "files/wikiapiary/Stats.php") (.Files.Get "files/wikiapiary/stats-snapshot.json") | sha256sum }}
@@ -198,14 +198,12 @@ spec:
               subPath: stats-snapshot.json
             {{- end }}
             {{- if .Values.foregroundModern.enabled }}
+            {{- range $path, $_ := .Files.Glob "files/foreground/*" }}
             - name: foreground-modern
-              mountPath: /var/www/mediawiki/w/resources/wikiapiary-modern.css
-              subPath: wikiapiary-modern.css
+              mountPath: /var/www/mediawiki/w/skins/foreground/{{ if eq (base $path) "en.json" }}i18n/{{ end }}{{ base $path }}
+              subPath: {{ base $path }}
               readOnly: true
-            - name: foreground-modern
-              mountPath: /var/www/mediawiki/w/resources/wikiapiary-modern.js
-              subPath: wikiapiary-modern.js
-              readOnly: true
+            {{- end }}
             {{- end }}
             - name: user-skins
               mountPath: /var/www/mediawiki/w/user-skins

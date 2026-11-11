@@ -1,11 +1,5 @@
-/*
- * WikiApiary's modern visual layer for the existing Foreground skin.
- *
- * Keep selectors scoped to skin-foreground where possible. This file loads
- * after Foreground's Foundation-based styles and intentionally contains only
- * progressive visual overrides; the underlying skin and page markup remain
- * usable if this module is unavailable.
- */
+/* WikiApiary presentation, loaded last in Foreground's native stylesheet bundle.
+ * All layout and appearance are available before JavaScript runs. */
 
 :root {
   --wa-ink: #20242b;
@@ -289,8 +283,45 @@
 
 /* Page surface and hierarchy */
 
+/* Native navigation states, independent of Foundation's JavaScript plugins. */
+.skin-foreground .top-bar-section .dropdown[aria-hidden="true"],
+.skin-foreground #actions[aria-hidden="true"] {
+  display: none !important;
+}
+
+.skin-foreground .top-bar-section .dropdown[aria-hidden="false"] {
+  display: block;
+  position: absolute;
+  width: auto;
+  height: auto;
+  clip: auto;
+  overflow: visible;
+  left: 0;
+}
+
+.skin-foreground #top-bar-right .dropdown[aria-hidden="false"] {
+  left: auto;
+  right: 0;
+}
+
+.skin-foreground #actions[aria-hidden="false"] {
+  display: block;
+  position: fixed;
+  clip: auto;
+  max-width: calc(100vw - 16px);
+}
+
 .skin-foreground #page-content {
   margin: 0;
+}
+
+.skin-foreground .mw-search-results-container,
+.skin-foreground .mw-search-results {
+  max-width: 100%;
+}
+
+.skin-foreground .searchresult {
+  overflow-wrap: anywhere;
 }
 
 .skin-foreground #page-content > .row,
