@@ -19,6 +19,12 @@ remain part of the skin. The chart mounts the manifest, template, English messag
 CSS, and navigation script over the original skin files. Checksums roll the web
 pods whenever these files change, without rebuilding the application image.
 
+Mount these overrides under `user-skins/foreground`, the shared source directory.
+Canasta creates `skins/foreground` as a symlink during startup. Mounting files
+under that generated symlink instead creates a directory that hides the skin's
+base assets. Confirm every stylesheet listed in the manifest is readable after
+rollout, then verify the actual ResourceLoader response contains the native CSS.
+
 The enhancement keeps the bee artwork and honey-colored navigation while
 improving navigation states, typography, spacing, tables, forms, focus styles,
 and small-screen behavior. On the Main Page it also presents the statistics as

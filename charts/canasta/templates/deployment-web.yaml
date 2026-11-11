@@ -200,7 +200,7 @@ spec:
             {{- if .Values.foregroundModern.enabled }}
             {{- range $path, $_ := .Files.Glob "files/foreground/*" }}
             - name: foreground-modern
-              mountPath: /var/www/mediawiki/w/skins/foreground/{{ if eq (base $path) "en.json" }}i18n/{{ end }}{{ base $path }}
+              mountPath: /var/www/mediawiki/w/user-skins/foreground/{{ if eq (base $path) "en.json" }}i18n/{{ end }}{{ base $path }}
               subPath: {{ base $path }}
               readOnly: true
             {{- end }}
