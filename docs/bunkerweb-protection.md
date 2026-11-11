@@ -25,6 +25,12 @@ GPTBot, OAI-SearchBot and ChatGPT-User receive ordinary request inspection.
 The existing robots.txt permits public articles while excluding internal
 MediaWiki routes and special pages. It has no crawler-specific exclusions.
 
+One existing exception is enforced separately by Varnish: `meta-externalagent`
+receives HTTP 429. That rule was installed after this crawler exhausted PHP
+workers and database capacity by traversing revisions and semantic special
+pages, as recorded in [the October incident report](security-2026-10-24.md).
+The BunkerWeb crawler correction preserves that availability safeguard.
+
 Custom rules are generated separately for every accepted hostname, including
 hosts added during a primary-host cutover. They only exclude content attack
 rules for explicitly named MediaWiki content and password fields. Other
@@ -100,9 +106,18 @@ after public validation. Do not use production administrator credentials.
 The initial rollout below used a broader crawler blacklist. The follow-up
 policy removes search and AI crawlers from that blacklist, preserving scanner
 blocking and all request inspection. The expanded regression suite checks
-article access and robots.txt permissions for 19 crawler User-Agent strings,
+article access and robots.txt permissions for 18 crawler User-Agent strings,
 including GPTBot, OAI-SearchBot and ChatGPT-User, and checks attack denial
-with crawler names.
+with crawler names. It also verifies the pre-existing Meta crawler safeguard.
+
+[PR 74](https://github.com/semantisch/wikiapiary-canasta-k8s/pull/74) deployed
+the correction as `6746d5c185157566a41bee28eda18d337bd5f71e`. Argo CD reported
+Synced and Healthy, and both BunkerWeb replicas loaded the scanner-only
+User-Agent blacklist with CRS still enabled. All 84 regression checks then
+passed on each public hostname. The full User-Agent examples published in
+[OpenAI's crawler documentation](https://developers.openai.com/api/docs/bots)
+for GPTBot, OAI-SearchBot and ChatGPT-User also returned HTTP 200 and cache HIT
+on both hosts. Cache automation health and API host identity checks passed.
 
 [PR 72](https://github.com/semantisch/wikiapiary-canasta-k8s/pull/72) deployed
 commit `e10d94280cea0c30ecbbcd003d2368d3a99b7d5e`. Argo CD reported Synced and
