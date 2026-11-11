@@ -103,7 +103,7 @@ def main() -> None:
         "GPTBot/1.4", "OAI-SearchBot/1.4", "ChatGPT-User/1.0",
         "ClaudeBot/1.0", "Claude-SearchBot/1.0", "Claude-User/1.0",
         "Amazonbot/0.1", "CCBot/2.0", "Bytespider", "Diffbot/0.1",
-        "meta-externalagent/1.1", "FacebookBot/1.0",
+        "FacebookBot/1.0",
     )
     for ua in crawler_agents:
         check("crawler article " + ua, "/wiki/Main_Page", ua=ua)
@@ -112,6 +112,10 @@ def main() -> None:
         check("ordinary API client " + ua.split("/")[0], "/w/api.php?action=query&meta=siteinfo&format=json", ua=ua, json_key="query")
 
     if not args.baseline:
+        # A separate Varnish safeguard predates the WAF and follows a recorded
+        # production outage. See docs/security-2026-10-24.md.
+        for path in ("/wiki/Main_Page", "/robots.txt"):
+            check("existing Meta crawler safeguard " + path, path, ua="meta-externalagent/1.1", status=429)
         for ua in ("sqlmap/1.8", "Nikto/2.5", "Nuclei/3.0", "zgrab/0.1", "masscan/1.3"):
             check("blocked scanner " + ua, "/wiki/Main_Page", ua=ua, status=403)
         for ua in ("Googlebot/2.1", "GPTBot/1.4", "OAI-SearchBot/1.4", "ChatGPT-User/1.0"):
