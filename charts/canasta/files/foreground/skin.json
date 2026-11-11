@@ -1,0 +1,70 @@
+{
+    "name": "Foreground",
+    "version": "2.4.1-wikiapiary.1",
+    "author": [
+        "Garrick Van Buren",
+        "Jamie Thingelstad",
+        "Tom Hutchison",
+        "..."
+    ],
+    "url": "https://github.com/thingles/foreground",
+    "descriptionmsg": "foreground-desc",
+    "license-name": "BSD-2-Clause",
+    "type": "skin",
+    "ValidSkinNames": {
+        "foreground": {
+            "class": "SkinTemplate",
+            "args": [
+                {
+                    "name": "foreground",
+                    "template": "foregroundTemplate",
+                    "bodyOnly": true,
+                    "responsive": true,
+                    "scripts": [
+                        "skins.foreground.js"
+                    ],
+                    "styles": [
+                        "skins.foreground.styles"
+                    ]
+                }
+            ]
+        }
+    },
+    "requires": {
+        "MediaWiki": ">= 1.39.0"
+    },
+    "MessagesDirs": {
+        "SkinForeground": [
+            "i18n"
+        ]
+    },
+    "AutoloadClasses": {
+        "foregroundTemplate": "Foreground.skin.php"
+    },
+    "ResourceModules": {
+        "skins.foreground.styles": {
+            "position": "top",
+            "styles": [
+                "assets/stylesheets/normalize.css",
+                "assets/stylesheets/font-awesome.css",
+                "assets/stylesheets/fontawesome.css",
+                "assets/stylesheets/legacy.css",
+                "assets/stylesheets/foundation.css",
+                "assets/stylesheets/foreground.css",
+                "assets/stylesheets/foreground-print.css",
+                "wikiapiary.css"
+            ]
+        },
+        "skins.foreground.js": {
+            "scripts": [
+                "wikiapiary-navigation.js"
+            ]
+        }
+    },
+    "ResourceFileModulePaths": {
+        "localBasePath": "",
+        "remoteSkinPath": "foreground"
+    },
+    "config": {},
+    "manifest_version": 1
+}

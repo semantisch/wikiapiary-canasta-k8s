@@ -35,7 +35,7 @@ web:
       cpu: 1000m
       memory: 1Gi
 
-# GitOps-managed visual enhancements for the existing Foreground skin.
+# WikiApiary's native Foreground variant, mounted over the bundled base skin.
 foregroundModern:
   enabled: false
 

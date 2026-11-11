@@ -8,8 +8,5 @@ metadata:
     {{- include "canasta.labels" . | nindent 4 }}
     app.kubernetes.io/component: web
 data:
-  wikiapiary-modern.css: |
-{{ .Files.Get "files/wikiapiary/wikiapiary-modern.css" | indent 4 }}
-  wikiapiary-modern.js: |
-{{ .Files.Get "files/wikiapiary/wikiapiary-modern.js" | indent 4 }}
+{{ (.Files.Glob "files/foreground/*").AsConfig | indent 2 }}
 {{- end }}

@@ -43,9 +43,10 @@ deployment without downloading mutable chart code. Production-specific values
 remain separate from chart defaults, and runtime secrets are referenced by name
 rather than stored in Git.
 
-See [Foreground modernization](docs/foreground-modernization.md) for the
-WikiApiary-specific visual layer, before-and-after previews, and maintenance
-instructions.
+See [Foreground modernization](docs/foreground-modernization.md) for the native
+WikiApiary variant of Foreground, before-and-after previews, and maintenance
+instructions. Its design loads in the skin's initial stylesheet and remains
+visible with JavaScript disabled.
 
 ## Contributing
 
