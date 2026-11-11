@@ -104,7 +104,8 @@ Healthy, and both BunkerWeb replicas passed configuration tests and reloaded.
 - Desktop and mobile checks loaded the homepage, logo, footer images,
   ResourceLoader, login and exact-title search. Reading with JavaScript disabled
   remained available. No homepage image failures or horizontal overflow occurred.
-- Public browser login succeeded, including rejecting optional analytics.
+- Public browser login, edit save and readback, and logout succeeded after
+  rejecting optional analytics.
 - The controller remained near 100 MiB with no restarts after the namespace
   patch. Watches now seed from the collection resource version and resume after
   normal timeouts, avoiding repeated initial-object replay.
@@ -131,6 +132,11 @@ Validation used an available control-plane peer without modifying the user's
 kubeconfig. A transient run of canary POST checks received 503 responses during
 an outage. The repeated complete canary run and both public runs subsequently
 passed. Broad hosting-cluster remediation is outside this change.
+
+Cleanup removed the temporary canary ingress, its two ConfigMaps, the diagnostic
+route, the validation user subpage and all three staged uploads. The test account
+has no explicit groups, its password was replaced with a discarded random value,
+and its sessions were invalidated. Local test credentials were deleted.
 
 Operational evidence is under
 `/srv/workspace/users/1000/wikiapiary-bunkerweb-20261111/evidence`.
