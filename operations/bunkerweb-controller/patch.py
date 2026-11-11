@@ -14,10 +14,18 @@ for filename, digest in expected.items():
     if hashlib.sha256(data).hexdigest() != digest:
         raise SystemExit(f"Unexpected upstream {filename}, review patch before upgrading BunkerWeb")
     text = data.decode()
-    text = text.replace("from os import getenv", "from os import getenv\nfrom controllers.namespace_scope import list_scoped, watchers")
+    text = text.replace("from os import getenv", "from os import getenv\nfrom controllers.namespace_scope import list_scoped, watchers, seed_watch")
     text = text.replace("self._corev1.list_pod_for_all_namespaces(watch=False).items", "list_scoped(self._corev1, 'pod', self._namespaces)")
     text = text.replace("self._corev1.list_config_map_for_all_namespaces(watch=False).items", "list_scoped(self._corev1, 'config_map', self._namespaces)")
     text = text.replace("self._networkingv1.list_ingress_for_all_namespaces(watch=False).items", "list_scoped(self._networkingv1, 'ingress', self._namespaces)")
+    if filename == "KubernetesController.py":
+        # Keep the watch cursor across normal server timeouts. A fresh Watch
+        # would replay every existing object each minute and force redundant
+        # reconciliations. Reset only when the API says the cursor expired.
+        text = text.replace("        while attempt < retries:", "        event_watcher = watch.Watch()\n        while attempt < retries:")
+        text = text.replace("                yield from watch.Watch().stream(what)", "                if event_watcher.resource_version is None:\n                    yield seed_watch(what, event_watcher)\n                yield from event_watcher.stream(what, resource_version=event_watcher.resource_version, timeout_seconds=60)\n                attempt = 0\n                continue")
+        text = text.replace("        if self._first_start:", '        if self._first_start or event.get("type") == "RESYNC":')
+        text = text.replace('                    ignored = True\n                    attempt += 1', '                    ignored = True\n                    event_watcher.resource_version = None\n                    attempt += 1')
     if filename == "IngressController.py":
         start = text.index("    def _get_watchers(self):")
         end = text.index("    def _patch_ingress_status", start)

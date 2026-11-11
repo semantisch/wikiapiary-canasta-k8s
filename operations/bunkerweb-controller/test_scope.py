@@ -2,7 +2,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-from scope import list_scoped, watcher, watchers
+from scope import list_scoped, watcher, watchers, seed_watch
 
 
 class NamespaceScopeTests(unittest.TestCase):
@@ -37,6 +37,15 @@ class NamespaceScopeTests(unittest.TestCase):
         self.assertEqual(len(result), 10)
         for key, watch in result.items():
             self.assertEqual(watch(watch=True)["namespace"], key.split("/")[1])
+
+    def test_watch_starts_at_collection_cursor_and_forces_snapshot_reconciliation(self):
+        method = Mock(return_value=SimpleNamespace(
+            items=[SimpleNamespace(metadata=SimpleNamespace(resource_version="old"))],
+            metadata=SimpleNamespace(resource_version="current")))
+        event_watcher = SimpleNamespace(resource_version=None)
+        self.assertEqual(seed_watch(method, event_watcher), {"type": "RESYNC"})
+        self.assertEqual(event_watcher.resource_version, "current")
+        method.assert_called_once_with(watch=False, limit=1)
 
     def test_no_namespace_filter_retains_bounded_cluster_mode(self):
         api = SimpleNamespace(list_pod_for_all_namespaces=Mock(return_value=SimpleNamespace(items=[1], metadata=SimpleNamespace(_continue=""))))
