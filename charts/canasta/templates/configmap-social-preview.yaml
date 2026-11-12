@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "canasta.fullname" . }}-social-preview
+  namespace: {{ include "canasta.namespace" . }}
+  labels:
+    {{- include "canasta.labels" . | nindent 4 }}
+    app.kubernetes.io/component: caddy
+binaryData:
+  wikiapiary-social-v1.jpg: {{ .Files.Get "files/social/wikiapiary-social-v1.jpg" | b64enc | quote }}
