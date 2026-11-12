@@ -54,7 +54,12 @@ data:
     # heuristics. Exclude these observed rules only from this action's params.
     SecRule REQUEST_FILENAME "@streq /w/api.php" "id:1111116,phase:2,pass,nolog,t:none,chain"
       SecRule ARGS:action "@streq smwbrowse" "t:none,chain"
-        SecRule ARGS:browse "@streq subject" "t:none,ctl:ruleRemoveTargetById=932380;ARGS:params,ctl:ruleRemoveTargetById=942190;ARGS:params,ctl:ruleRemoveTargetById=942140;ARGS:params,ctl:ruleRemoveTargetById=942151;ARGS:params"
+        SecRule ARGS:browse "@streq subject" "t:none,ctl:ruleRemoveTargetById=932380;ARGS:params,ctl:ruleRemoveTargetById=942190;ARGS:params,ctl:ruleRemoveTargetById=942140;ARGS:params,ctl:ruleRemoveTargetById=942151;ARGS:params,ctl:ruleRemoveTargetById=933160;ARGS:params"
+
+    # Special:Browse receives the same literal /Whois title in article.
+    SecRule REQUEST_FILENAME "@streq /w/index.php" "id:1111121,phase:2,pass,nolog,t:none,chain"
+      SecRule ARGS:title "@streq Special:Browse" "t:none,chain"
+        SecRule ARGS:article "@rx /Whois$" "t:none,ctl:ruleRemoveTargetById=932340;ARGS:article"
 
     # Login links carry a wiki title and a nested query string as navigation data.
     SecRule REQUEST_FILENAME "@streq /w/index.php" "id:1111117,phase:2,pass,nolog,t:none,chain"
