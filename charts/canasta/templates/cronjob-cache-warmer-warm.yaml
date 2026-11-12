@@ -4,6 +4,8 @@ kind: CronJob
 metadata:
   name: {{ include "canasta.fullname" . }}-cache-warm-priority
   namespace: {{ include "canasta.namespace" . }}
+  annotations:
+    wikiapiary.com/index-repair-priority: {{ .Values.cacheWarmer.backgroundSuspend | quote }}
   labels:
     {{- include "canasta.labels" . | nindent 4 }}
     app.kubernetes.io/component: cache-warmer
@@ -81,11 +83,13 @@ kind: CronJob
 metadata:
   name: {{ include "canasta.fullname" . }}-cache-warm
   namespace: {{ include "canasta.namespace" . }}
+  annotations:
+    wikiapiary.com/index-repair-priority: {{ .Values.cacheWarmer.backgroundSuspend | quote }}
   labels:
     {{- include "canasta.labels" . | nindent 4 }}
     app.kubernetes.io/component: cache-warmer
 spec:
-  suspend: {{ .Values.cacheWarmer.suspend }}
+  suspend: {{ or .Values.cacheWarmer.suspend .Values.cacheWarmer.backgroundSuspend }}
   schedule: {{ .Values.cacheWarmer.warmSchedule | quote }}
   startingDeadlineSeconds: {{ .Values.cacheWarmer.startingDeadlineSeconds }}
   concurrencyPolicy: Forbid

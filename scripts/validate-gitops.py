@@ -472,7 +472,10 @@ def validate_rendered(
         raise RuntimeError("Caddy must preserve each accepted request Host")
 
     cronjobs = [document for document in documents if document.get("kind") == "CronJob"]
-    suspended = [job["metadata"]["name"] for job in cronjobs if job["spec"].get("suspend")]
+    suspended = [job["metadata"]["name"] for job in cronjobs if job["spec"].get("suspend")
+                 and not (job["metadata"]["name"].endswith(("-cache-discover", "-cache-warm"))
+                          and job["metadata"].get("annotations", {}).get(
+                              "wikiapiary.com/index-repair-priority") == "true")]
     if suspended:
         raise RuntimeError(f"production cache CronJobs must not be suspended: {suspended!r}")
     for cronjob in cronjobs:
