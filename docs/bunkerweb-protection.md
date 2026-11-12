@@ -25,15 +25,16 @@ GPTBot, OAI-SearchBot and ChatGPT-User receive ordinary request inspection.
 The existing robots.txt permits public articles while excluding internal
 MediaWiki routes and special pages. It has no crawler-specific exclusions.
 
-One existing exception is enforced separately by Varnish: `meta-externalagent`
-receives HTTP 429. That rule was installed after this crawler exhausted PHP
-workers and database capacity by traversing revisions and semantic special
-pages, as recorded in [the October incident report](security-2026-10-24.md).
-The BunkerWeb crawler correction preserves that availability safeguard.
+Meta's `meta-externalagent` is allowed with the same request inspection as
+other crawlers. Its former Varnish-wide HTTP 429 restriction is removed at
+the operator's request. The [October incident report](security-2026-10-24.md)
+records why that historical safeguard existed. This change does not introduce
+per-client rate limiting, which still requires the trusted client-IP work below.
 
 Custom rules are generated separately for every accepted hostname, including
-hosts added during a primary-host cutover. They only exclude content attack
-rules for explicitly named MediaWiki content and password fields. Other
+hosts added during a primary-host cutover. They exclude content attack
+rules for explicitly named MediaWiki content and password fields, and specific
+rule IDs on observed MediaWiki navigation and module parameters. Other
 arguments on those same endpoints remain inspected. MediaWiki retains its
 authentication, CSRF, permission and HTML sanitisation checks. Response-body
 inspection is disabled because returned wiki articles intentionally contain
@@ -49,6 +50,24 @@ the existing PHP post limit. BunkerWeb previously allowed 10 MiB. Non-file
 request inspection allows 8 MiB, enough for URL-encoded articles within
 MediaWiki's existing 2 MiB article limit. MediaWiki still enforces file types,
 upload permissions and application size limits.
+
+## MediaWiki rule tuning, 12 November 2026
+
+The retained access and rule logs identified collisions with ordinary wiki
+navigation. The new rules remove only the matching CRS rule targets:
+
+- ResourceLoader module names with a restricted character set, including history modules.
+- Article URLs ending in `.com`, which are handled by the article router.
+- Imported `/Whois` subpage names in article, backlink, feed and login parameters.
+- Semantic MediaWiki subject-browser JSON with its `dir` option and page names.
+- Login and account return titles with nested navigation query strings.
+- The filename-only PHP heuristic on the imported `A.I.M.$_(...)` article title.
+
+All other rule targets remain active, including the other parameters on the
+same request. No User-Agent gains an inspection bypass. The read-only
+`scripts/smoke-firewall-mediawiki.py` suite pairs normal requests with XSS probes
+and checks exception boundaries, traversal and shell substitution. Run it
+against each public hostname after the standard firewall suite.
 
 ## Client-IP limitation
 
