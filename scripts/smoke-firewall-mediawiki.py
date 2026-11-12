@@ -15,6 +15,8 @@ def cases():
                          "subobject": "", "options": {"dir": None, "lang": "en",
                          "group": None, "offset": None}, "type": "html"})
     benign = [
+        ("SMW literal PHP-like title", "/w/api.php", {"action": "smwbrowse", "browse": "subject", "params": json.dumps({"subject": "Simon's Help System (wiki.bunnfamily.nz)", "ns": 0}), "format": "json"}, "GET"),
+        ("Whois semantic browse", "/w/index.php", {"title": "Special:Browse", "article": "Sveti_Vlas/Whois", "offset": "0", "group": "hide"}, "GET"),
         ("Literal PHP-like revision title", "/w/api.php", {"action": "query", "prop": "revisions", "rvprop": "ids", "titles": "System (wiki.bunnfamily.nz)", "format": "json"}, "GET"),
         ("Literal PHP-like edit title without token", "/w/api.php", {"action": "edit", "title": "System (wiki.bunnfamily.nz)", "format": "json"}, "POST"),
         ("Bulk revision titles", "/w/api.php", {"action": "query", "prop": "revisions", "rvprop": "ids", "titles": "Main Page|Script Gallerie Photos de Carlito (albumphoto.charles-gaudon.com)", "format": "json"}, "GET"),
@@ -39,6 +41,8 @@ def cases():
         yield "XSS still denied: " + name, path, {**query, "waf_probe": "<script>alert(1)</script>"}, method, True
     yield "ResourceLoader traversal denied", "/w/load.php", {"modules": "../../etc/passwd"}, "GET", True
     yield "SMW exception restricted to action", "/w/api.php", {"action": "query", "params": params}, "POST", True
+    yield "SMW PHP-like title exception requires subject browse", "/w/api.php", {"action": "smwbrowse", "browse": "property", "params": '{"subject":"System (example.org)","ns":0}'}, "GET", True
+    yield "Whois article exception requires Special Browse", "/w/index.php", {"title": "Main_Page", "article": "Sveti_Vlas/Whois"}, "GET", True
     yield "Whois title shell substitution denied", "/w/index.php", {"title": "$(id)/Whois"}, "GET", True
     yield "SMW params XSS denied", "/w/api.php", {"action": "smwbrowse", "browse": "subject", "params": '{"subject":"<script>alert(1)</script>","options":{"dir":null}}'}, "POST", True
     yield "SMW params SQL injection denied", "/w/api.php", {"action": "smwbrowse", "browse": "subject", "params": '{"subject":"1 UNION SELECT password FROM users--","ns":0}'}, "GET", True
