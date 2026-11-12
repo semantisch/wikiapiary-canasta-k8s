@@ -1208,7 +1208,9 @@ data:
     }
     $uncacheableMap = array_replace($globalUncacheableMap, $priorityUncacheableMap);
 
-    $tier1 = ['/', '/wiki/Main_Page', '/wiki/Websites', '/wiki/Websites/WikiTeam'];
+    // The canonical homepage must remain first when repair mode limits this
+    // worker to one page. Only this route uses the forced edge refresh below.
+    $tier1 = ['/wiki/Main_Page', '/', '/wiki/Websites', '/wiki/Websites/WikiTeam'];
     $ordered = [];
     $prioritySeeds = [];
     foreach ($seedPages as $path) {
