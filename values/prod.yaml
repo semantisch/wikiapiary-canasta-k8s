@@ -21,9 +21,12 @@ nodeSelector: {}
 
 web:
   replicaCount: 2
-  spreadAcrossNodes: true
+  # Native SMW updates issue thousands of short SQL requests per profile.
+  # Keep PHP next to the single database primary, the edge remains replicated.
+  spreadAcrossNodes: false
   nodeSelector:
     wikiapiary-role: worker
+    kubernetes.io/hostname: dobriyai-hosting-2
   skipStartupUpdate: true
   resources:
     requests:
@@ -174,6 +177,7 @@ jobrunner:
   replicaCount: 2
   nodeSelector:
     wikiapiary-role: worker
+    kubernetes.io/hostname: dobriyai-hosting-2
   runJobsArgs: "--wait --maxjobs=100 --procs=4 --nothrottle"
   resources:
     requests:
