@@ -1,0 +1,20 @@
+{{- range $component := list "web" "caddy" "varnish" }}
+{{- $settings := index $.Values $component }}
+{{- if and (gt (int $settings.replicaCount) 1) (or (ne $component "varnish") $settings.enabled) }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "canasta.fullname" $ }}-{{ $component }}
+  namespace: {{ include "canasta.namespace" $ }}
+  labels:
+    {{- include "canasta.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $component }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      {{- include "canasta.selectorLabels" $ | nindent 6 }}
+      app.kubernetes.io/component: {{ $component }}
+{{- end }}
+{{- end }}

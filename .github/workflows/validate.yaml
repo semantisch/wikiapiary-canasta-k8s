@@ -45,6 +45,14 @@ jobs:
       - name: Validate production monitor retries
         run: python3 scripts/test-smoke-production.py
 
+      - name: Verify proxy failure recovery and write safety
+        run: |
+          docker create --name caddy-test caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
+          docker cp caddy-test:/usr/bin/caddy "$RUNNER_TEMP/caddy"
+          docker rm caddy-test
+          chmod +x "$RUNNER_TEMP/caddy"
+          CADDY_BIN="$RUNNER_TEMP/caddy" python3 scripts/test-proxy-recovery.py
+
       - name: Validate scoped BunkerWeb discovery
         run: python3 operations/bunkerweb-controller/test_scope.py
 
