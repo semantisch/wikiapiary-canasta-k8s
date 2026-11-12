@@ -1571,8 +1571,7 @@ data:
         rewind($fp);
         $lines = stream_get_contents($fp);
         $entries = preg_split('/\r?\n/', trim((string)$lines));
-        $items = [];
-        $rest = [];
+        $pending = [];
         foreach ($entries as $line) {
             if ($line === '') {
                 continue;
@@ -1581,12 +1580,18 @@ data:
             if (!is_array($entry) || empty($entry['path']) || !eligible_warm_path($entry['path'])) {
                 continue;
             }
-            if (count($items) < $limit) {
-                $items[] = $entry;
-            } else {
-                $rest[] = $line;
-            }
+            // Imports can queue thousands of profile pages. A homepage purge
+            // must reach every Varnish replica before that backlog drains.
+            $homepage = in_array($entry['path'], ['/', '/wiki/Main_Page'], true);
+            $forced = in_array($entry['reason'] ?? '', ['page-save', 'article-purge', 'page-move'], true);
+            $pending[] = ['entry' => $entry, 'line' => $line,
+                'priority' => $homepage && $forced ? 0 : 1, 'sequence' => count($pending)];
         }
+        usort($pending, static function ($a, $b) {
+            return [$a['priority'], $a['sequence']] <=> [$b['priority'], $b['sequence']];
+        });
+        $items = array_column(array_slice($pending, 0, $limit), 'entry');
+        $rest = array_column(array_slice($pending, $limit), 'line');
         ftruncate($fp, 0);
         rewind($fp);
         if ($rest) {
