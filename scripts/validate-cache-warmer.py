@@ -327,6 +327,19 @@ def validate(rendered_path: Path) -> None:
             if "/wiki/Uncacheable" not in priority_uncacheable.get("pages", {}):
                 raise RuntimeError("no-store page was not persisted in priority skip list")
 
+            repair_start = len(CacheBackendHandler.received)
+            run_checked(["php", str(script_dir / "priority.php")], env=priority_env | {
+                "PRIORITY_HOT_PAGES_LIMIT": "0", "PRIORITY_PAGES_LIMIT": "1",
+            })
+            repair_report = assert_successful_report(cache_dir / "priority-warm-run.json")
+            if [r["path"] for r in repair_report["results"]] != ["/wiki/Main_Page"]:
+                raise RuntimeError("single-page repair mode must refresh the canonical homepage")
+            repair_requests = CacheBackendHandler.received[repair_start:]
+            if (("/wiki/Main_Page", "1") not in repair_requests
+                    or ("/wiki/Main_Page", None) not in repair_requests
+                    or any(path != "/wiki/Main_Page" for path, _ in repair_requests)):
+                raise RuntimeError("repair mode did not force and verify the canonical homepage")
+
             failed_start = len(CacheBackendHandler.received)
             CacheBackendHandler.homepage_fail = True
             failed_run = subprocess.run(["php", str(script_dir / "priority.php")],
