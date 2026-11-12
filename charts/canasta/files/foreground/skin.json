@@ -57,7 +57,8 @@
         },
         "skins.foreground.js": {
             "scripts": [
-                "wikiapiary-navigation.js"
+                "wikiapiary-navigation.js",
+                "wikiapiary-feedback.js"
             ]
         }
     },

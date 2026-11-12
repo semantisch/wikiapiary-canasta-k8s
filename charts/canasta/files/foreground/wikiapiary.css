@@ -74,6 +74,32 @@
   margin-bottom: 0.85em;
 }
 
+/* Native feedback tab, available even if the optional widget cannot load. */
+.skin-foreground #wikiapiary-feedback {
+  position: fixed;
+  right: 0;
+  top: 45%;
+  z-index: 710;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 8px;
+  min-width: 44px;
+  writing-mode: vertical-rl;
+  border: 1px solid var(--wa-brand);
+  border-right: 0;
+  border-radius: 10px 0 0 10px;
+  background: var(--wa-brand-soft);
+  color: var(--wa-ink);
+  box-shadow: var(--wa-shadow-sm);
+  font: 600 14px Poppins, ui-sans-serif, sans-serif;
+  text-decoration: none;
+}
+.skin-foreground #wikiapiary-feedback:hover { background: var(--wa-nav-hover); }
+.skin-foreground #wikiapiary-feedback img { width: 28px; height: 28px; object-fit: contain; }
+.skin-foreground #wikiapiary-feedback[aria-busy="true"] { cursor: progress; }
+@media print { #wikiapiary-feedback, #featurehub-widget { display: none !important; } }
+
 /* Navigation */
 
 .skin-foreground #navwrapper {

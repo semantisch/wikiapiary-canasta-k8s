@@ -322,7 +322,7 @@ def validate_rendered(
             raise RuntimeError(f"Foreground must render its accessible labels in PHP: {message}")
     if any(marker in foreground_js for marker in ("createElement", "appendChild", "textContent", "mw.loader")):
         raise RuntimeError("Foreground navigation JS must not construct the page's appearance")
-    if modules["skins.foreground.js"].get("scripts") != ["wikiapiary-navigation.js"]:
+    if modules["skins.foreground.js"].get("scripts") != ["wikiapiary-navigation.js", "wikiapiary-feedback.js"]:
         raise RuntimeError("Foreground navigation must not depend on the broken Foundation plugins")
     if "onclick=" in foreground_template:
         raise RuntimeError("Foreground must not bind duplicate inline and module click handlers")
