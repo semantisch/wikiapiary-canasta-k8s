@@ -303,6 +303,29 @@ def validate(rendered_path: Path) -> None:
                 raise RuntimeError("no-store page was not persisted in priority skip list")
 
             worker = scripts["worker.php"]
+            # Reproduce a homepage purge waiting behind a large import backlog.
+            queue_functions = worker[
+                worker.index("function drain_queue("):worker.index("function tier1_core_pages(")
+            ]
+            queue_test = script_dir / "queue-test.php"
+            queue_test.write_text(
+                "<?php\nfunction eligible_warm_path($path) { return true; }\n"
+                + queue_functions
+                + "\n$queue = $argv[1]; $items = drain_queue($queue, 2); "
+                + "echo json_encode($items);\n",
+                encoding="utf-8",
+            )
+            backlog = [{"path": f"/wiki/Profile_{i}", "reason": "page-save"} for i in range(1000)]
+            homepage_purge = {"path": "/wiki/Main_Page", "reason": "article-purge"}
+            queue_path = cache_dir / "queue-test.ndjson"
+            queue_path.write_text(
+                "".join(json.dumps(entry) + "\n" for entry in backlog + [homepage_purge]),
+                encoding="utf-8",
+            )
+            drained = json.loads(run_checked(["php", str(queue_test), str(queue_path)]))
+            remaining = [json.loads(line) for line in queue_path.read_text().splitlines()]
+            if drained != [homepage_purge, backlog[0]] or remaining != backlog[1:]:
+                raise RuntimeError("homepage purge starved or profile work was reordered/lost")
             for marker in (
                 "'X-WikiApiary-Force-Refresh: 1'",
                 "['page-save', 'article-purge', 'page-move']",
