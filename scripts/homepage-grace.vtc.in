@@ -1,5 +1,6 @@
 varnishtest "Homepage serves stale during slow refresh, ordinary pages hard purge"
 barrier b1 cond 2
+barrier b2 cond 2
 server s1 {
     rxreq
     txresp -hdr "Cache-Control: public, s-maxage=600" -body "old-home"
@@ -10,6 +11,9 @@ server s1 {
     txresp -hdr "Cache-Control: public, s-maxage=600" -body "old-profile"
     rxreq
     txresp -hdr "Cache-Control: public, s-maxage=600" -body "new-profile"
+    rxreq
+    txresp -status 503 -body "temporary backend failure"
+    barrier b2 sync
 } -start
 varnish v1 -vcl {
 __VCL__
@@ -41,5 +45,20 @@ client c2 {
     txreq -url /wiki/Profile -hdr "Host: wikiapiary.test"
     rxresp
     expect resp.body == "new-profile"
+} -run
+client c3 {
+    txreq -req PURGE -url /wiki/Main_Page -hdr "Host: wikiapiary.test"
+    rxresp
+    expect resp.status == 200
+    txreq -url /wiki/Main_Page -hdr "Host: wikiapiary.test"
+    rxresp
+    expect resp.body == "new-home"
+    barrier b2 sync
+} -run
+delay 0.2
+client c4 {
+    txreq -url /wiki/Main_Page -hdr "Host: wikiapiary.test"
+    rxresp
+    expect resp.body == "new-home"
 } -run
 server s1 -wait
