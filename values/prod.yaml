@@ -681,6 +681,45 @@ configData:
       <?php
       $wgUploadDirectory = "{$IP}/images/wikiapiary";
       $wgUploadPath = "/w/images/wikiapiary";
+    settings--global--08SocialPreview.php: |
+      <?php
+      // Both mirrors share the canonical identity configured by site.primaryHost.
+      $wgEnableCanonicalServerLink = true;
+      $wgHooks['BeforePageDisplay'][] = static function ( $out, $skin ) {
+          $title = $out->getTitle();
+          if ( !$title || $title->isSpecialPage() || $out->getRequest()->getVal( 'action', 'view' ) !== 'view' ) {
+              return;
+          }
+          $origin = getenv( 'MW_SITE_SERVER' ) ?: '__SITE_SERVER__';
+          $image = $origin . '/assets/wikiapiary-social-v1.jpg';
+          $label = $title->isMainPage() ? 'WikiApiary — Discover the world of wikis' : $title->getPrefixedText() . ' — WikiApiary';
+          $description = $title->isMainPage()
+              ? 'Explore wiki sites, their software and the knowledge they share. WikiApiary connects the world of wikis.'
+              : 'Explore ' . $title->getPrefixedText() . ' on WikiApiary, the community resource for discovering wikis and their technology.';
+          $alt = 'WikiApiary honey lettering and a bee with a magnifying glass. Discover the world of wikis.';
+          $properties = [
+              'og:type' => 'website',
+              'og:site_name' => 'WikiApiary',
+              'og:title' => $label,
+              'og:description' => $description,
+              'og:url' => $title->getCanonicalURL(),
+              'og:image' => $image,
+              'og:image:secure_url' => $image,
+              'og:image:type' => 'image/jpeg',
+              'og:image:width' => '1200',
+              'og:image:height' => '630',
+              'og:image:alt' => $alt,
+          ];
+          foreach ( $properties as $property => $content ) {
+              $out->addHeadItem( $property, Html::element( 'meta', [ 'property' => $property, 'content' => $content ] ) );
+          }
+          $out->addMeta( 'description', $description );
+          $out->addMeta( 'twitter:card', 'summary_large_image' );
+          $out->addMeta( 'twitter:title', $label );
+          $out->addMeta( 'twitter:description', $description );
+          $out->addMeta( 'twitter:image', $image );
+          $out->addMeta( 'twitter:image:alt', $alt );
+      };
     settings--global--06Search.php: |
       <?php
       $wgDisableSearchUpdate = false;
@@ -922,6 +961,13 @@ configData:
           }
       }
     Caddyfile.site: |
+      handle_path /assets/wikiapiary-social-v1.jpg {
+          root * /srv/wikiapiary-social
+          rewrite * /wikiapiary-social-v1.jpg
+          header Cache-Control "public, max-age=31536000, immutable"
+          file_server
+      }
+
       @legacy_root_assets path /wmf-cloud.png /mariadb-badge-88x31.png /smw-logo.png
       handle @legacy_root_assets {
           root * /srv/wiki-images/wikiapiary-assets

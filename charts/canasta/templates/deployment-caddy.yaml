@@ -25,6 +25,7 @@ spec:
         {{- include "canasta.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: caddy
       annotations:
+        checksum/social-preview: {{ include (print $.Template.BasePath "/configmap-social-preview.yaml") . | sha256sum }}
         checksum/caddy-config: {{ dict "config" .Values.configData.caddy "site" .Values.site | toJson | sha256sum }}
     spec:
       {{- $nodeSelector := .Values.caddy.nodeSelector | default .Values.nodeSelector }}
@@ -61,6 +62,9 @@ spec:
               containerPort: 443
               protocol: TCP
           volumeMounts:
+            - name: social-preview
+              mountPath: /srv/wikiapiary-social
+              readOnly: true
             - name: caddy-config
               mountPath: /etc/caddy/Caddyfile
               subPath: Caddyfile
@@ -93,6 +97,9 @@ spec:
               port: http
             periodSeconds: 30
       volumes:
+        - name: social-preview
+          configMap:
+            name: {{ include "canasta.fullname" . }}-social-preview
         - name: caddy-config
           configMap:
             name: {{ include "canasta.fullname" . }}-caddy-config
