@@ -174,11 +174,12 @@ elasticsearch:
 
 jobrunner:
   enabled: true
-  replicaCount: 2
+  # Reserve database write capacity for the bounded inventory repair fleet.
+  replicaCount: 1
   nodeSelector:
     wikiapiary-role: worker
     kubernetes.io/hostname: dobriyai-hosting-2
-  runJobsArgs: "--wait --maxjobs=100 --procs=4 --nothrottle"
+  runJobsArgs: "--wait --maxjobs=100 --procs=1 --nothrottle"
   resources:
     requests:
       cpu: 250m
