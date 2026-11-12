@@ -198,6 +198,9 @@ extensionOverrides:
 
 ingress:
   enabled: true
+  # Expose both ready addresses to the WAF so a failed connection can try the
+  # other replica, instead of having a single opaque Service VIP upstream.
+  backendServiceName: caddy-headless
   className: bunkerweb
   tls: false
   tlsHosts: []
@@ -206,6 +209,7 @@ ingress:
     bunkerweb.io/KEEP_UPSTREAM_HEADERS: "Content-Security-Policy Permissions-Policy X-Frame-Options Cache-Control Referrer-Policy"
     bunkerweb.io/REVERSE_PROXY_HEADERS: "X-Forwarded-Proto $http_x_forwarded_proto;X-Forwarded-Protocol $http_x_forwarded_proto;X-Forwarded-Port 443"
     bunkerweb.io/REVERSE_PROXY_INTERCEPT_ERRORS: "no"
+    bunkerweb.io/REVERSE_PROXY_CONNECT_TIMEOUT: "2s"
     bunkerweb.io/SECURITY_MODE: "block"
     bunkerweb.io/USE_ANTIBOT: "no"
     bunkerweb.io/USE_BAD_BEHAVIOR: "no"
