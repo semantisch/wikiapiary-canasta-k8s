@@ -30,6 +30,38 @@ metadata:
     bunkerweb.io/CONFIG_SITE: {{ $host | quote }}
 data:
   wikiapiary-mediawiki.conf: |
+    # ResourceLoader accepts registered module names, not filesystem paths.
+    # Keep traversal and every other argument inspected.
+    SecRule REQUEST_FILENAME "@streq /w/load.php" "id:1111110,phase:2,pass,nolog,t:none,chain"
+      SecRule ARGS:modules "@rx ^[A-Za-z0-9_.|,-]+$" "t:none,ctl:ruleRemoveTargetById=930120;ARGS:modules"
+
+    # /wiki/ is the article router. A title ending in .com is not an executable.
+    SecRule REQUEST_FILENAME "@beginsWith /wiki/" "id:1111111,phase:1,pass,nolog,t:none,ctl:ruleRemoveById=920440"
+
+    # /Whois is an ordinary imported wiki subpage, not a shell command.
+    SecRule REQUEST_FILENAME "@streq /w/index.php" "id:1111112,phase:2,pass,nolog,t:none,chain"
+      SecRule ARGS:title "@rx /Whois$" "t:none,ctl:ruleRemoveTargetById=932340;ARGS:title"
+    SecRule REQUEST_FILENAME "@streq /w/index.php" "id:1111113,phase:2,pass,nolog,t:none,chain"
+      SecRule ARGS:target "@rx /Whois$" "t:none,ctl:ruleRemoveTargetById=932340;ARGS:target"
+    SecRule REQUEST_FILENAME "@streq /w/index.php" "id:1111114,phase:2,pass,nolog,t:none,chain"
+      SecRule ARGS:returnto "@rx /Whois$" "t:none,ctl:ruleRemoveTargetById=932340;ARGS:returnto"
+    SecRule REQUEST_FILENAME "@streq /w/api.php" "id:1111115,phase:2,pass,nolog,t:none,chain"
+      SecRule ARGS:action "@streq feedrecentchanges" "t:none,chain"
+        SecRule ARGS:target "@rx /Whois$" "t:none,ctl:ruleRemoveTargetById=932340;ARGS:target"
+
+    # SMW's subject browser sends JSON with a dir option and arbitrary page names.
+    # Exclude only the two matching rules, only from this action's params field.
+    SecRule REQUEST_FILENAME "@streq /w/api.php" "id:1111116,phase:2,pass,nolog,t:none,chain"
+      SecRule ARGS:action "@streq smwbrowse" "t:none,chain"
+        SecRule ARGS:browse "@streq subject" "t:none,ctl:ruleRemoveTargetById=932380;ARGS:params,ctl:ruleRemoveTargetById=942190;ARGS:params"
+
+    # Login links carry a wiki title and a nested query string as navigation data.
+    SecRule REQUEST_FILENAME "@streq /w/index.php" "id:1111117,phase:2,pass,nolog,t:none,chain"
+      SecRule ARGS:title "@rx ^Special:(?:UserLogin|CreateAccount)$" "t:none,ctl:ruleRemoveTargetById=932330;ARGS:returnto,ctl:ruleRemoveTargetById=932125;ARGS:returnto,ctl:ruleRemoveTargetById=932235;ARGS:returntoquery,ctl:ruleRemoveTargetById=932380;ARGS:returntoquery"
+
+    # A.I.M.$_(...) is a wiki title. Exclude this one filename-only PHP heuristic.
+    SecRule REQUEST_FILENAME "@beginsWith /wiki/A.I.M.$_(" "id:1111118,phase:2,pass,nolog,t:none,ctl:ruleRemoveTargetById=933180;REQUEST_FILENAME"
+
     # Content is data in these fields. MediaWiki supplies authentication, CSRF
     # checks, permissions and sanitisation. Other arguments remain inspected.
     # Phase 2 is needed to see action and text in POST form bodies.

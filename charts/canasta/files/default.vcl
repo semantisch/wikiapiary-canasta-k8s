@@ -20,12 +20,6 @@ acl purge {
 
 # vcl_recv is called whenever a request is received
 sub vcl_recv {
-    # This crawler caused a production outage by walking uncached revisions and
-    # semantic special pages. Reject it before PHP or the database is involved.
-    if (req.http.User-Agent ~ "(?i)meta-externalagent") {
-        return (synth(429, "Crawler request limit reached"));
-    }
-
     # Serve objects up to 2 minutes past their expiry if the backend
     # is slow to respond.
     set req.grace = 1h;
