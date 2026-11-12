@@ -166,6 +166,33 @@
   padding: 0.68rem 0.55rem;
 }
 
+.skin-foreground .top-bar-section .wikiapiary-search-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.skin-foreground #wikiapiary-sparql {
+  flex: 0 0 auto;
+  padding: 0 0.65rem;
+  border: 1px solid var(--wa-brand-strong);
+  border-radius: var(--wa-radius-sm);
+  background: var(--wa-brand-soft);
+  color: var(--wa-brand-strong);
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 2.25rem;
+}
+
+.skin-foreground .wikiapiary-search-actions #searchform {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.skin-foreground #searchInput {
+  min-width: 0;
+}
+
 .skin-foreground #searchform .row,
 .skin-foreground #searchform .columns {
   margin: 0;

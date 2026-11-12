@@ -15,6 +15,11 @@ def cases():
                          "subobject": "", "options": {"dir": None, "lang": "en",
                          "group": None, "offset": None}, "type": "html"})
     benign = [
+        ("Literal database revision title", "/w/api.php", {"action": "query", "prop": "revisions", "rvprop": "ids", "titles": "Intranet Movie Database (intranet-movies.wikibase.cloud)", "format": "json"}, "GET"),
+        ("Literal database edit title without token", "/w/api.php", {"action": "edit", "title": "Intranet Movie Database (intranet-movies.wikibase.cloud)", "format": "json"}, "POST"),
+        ("Reviewed Rick and Morty revision title", "/w/api.php", {"action": "query", "prop": "revisions", "rvprop": "ids", "titles": "Rick and Morty Time (rickandmortytime.com)", "format": "json"}, "GET"),
+        ("Reviewed Rick and Morty edit title without token", "/w/api.php", {"action": "edit", "title": "Rick and Morty Time (rickandmortytime.com)", "format": "json"}, "POST"),
+        ("Literal STD revision title", "/w/api.php", {"action": "query", "prop": "revisions", "rvprop": "ids", "titles": "STD (terminologickyportal.sk)", "format": "json"}, "GET"),
         ("SMW literal PHP-like title", "/w/api.php", {"action": "smwbrowse", "browse": "subject", "params": json.dumps({"subject": "Simon's Help System (wiki.bunnfamily.nz)", "ns": 0}), "format": "json"}, "GET"),
         ("Whois semantic browse", "/w/index.php", {"title": "Special:Browse", "article": "Sveti_Vlas/Whois", "offset": "0", "group": "hide"}, "GET"),
         ("Literal PHP-like revision title", "/w/api.php", {"action": "query", "prop": "revisions", "rvprop": "ids", "titles": "System (wiki.bunnfamily.nz)", "format": "json"}, "GET"),
@@ -40,6 +45,9 @@ def cases():
     for name, path, query, method in benign:
         yield "XSS still denied: " + name, path, {**query, "waf_probe": "<script>alert(1)</script>"}, method, True
     yield "ResourceLoader traversal denied", "/w/load.php", {"modules": "../../etc/passwd"}, "GET", True
+    yield "Revision title SQL injection denied", "/w/api.php", {"action": "query", "prop": "revisions", "titles": "1 UNION SELECT password FROM users--"}, "GET", True
+    yield "Edit title SQL injection denied", "/w/api.php", {"action": "edit", "title": "1 UNION SELECT password FROM users--"}, "POST", True
+    yield "Database title exception requires revision property", "/w/api.php", {"action": "query", "prop": "info", "titles": "Intranet Movie Database (intranet-movies.wikibase.cloud)"}, "GET", True
     yield "SMW exception restricted to action", "/w/api.php", {"action": "query", "params": params}, "POST", True
     yield "SMW PHP-like title exception requires subject browse", "/w/api.php", {"action": "smwbrowse", "browse": "property", "params": '{"subject":"System (example.org)","ns":0}'}, "GET", True
     yield "Whois article exception requires Special Browse", "/w/index.php", {"title": "Main_Page", "article": "Sveti_Vlas/Whois"}, "GET", True

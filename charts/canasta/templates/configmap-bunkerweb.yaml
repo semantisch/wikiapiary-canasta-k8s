@@ -73,11 +73,21 @@ data:
     # exception to the observed rule, action, property and titles argument.
     SecRule REQUEST_FILENAME "@streq /w/api.php" "id:1111119,phase:2,pass,nolog,t:none,chain"
       SecRule ARGS:action "@streq query" "t:none,chain"
-        SecRule ARGS:prop "@streq revisions" "t:none,ctl:ruleRemoveTargetById=932235;ARGS:titles,ctl:ruleRemoveTargetById=933160;ARGS:titles"
+        SecRule ARGS:prop "@streq revisions" "t:none,ctl:ruleRemoveTargetById=932235;ARGS:titles,ctl:ruleRemoveTargetById=933160;ARGS:titles,ctl:ruleRemoveTargetById=942140;ARGS:titles,ctl:ruleRemoveTargetById=942151;ARGS:titles,ctl:ruleRemoveTargetById=942190;ARGS:titles"
 
     # A literal page name such as System (wiki.bunnfamily.nz) is not a PHP call.
     SecRule REQUEST_FILENAME "@streq /w/api.php" "id:1111120,phase:2,pass,nolog,t:none,chain"
-      SecRule ARGS:action "@streq edit" "t:none,ctl:ruleRemoveTargetById=933160;ARGS:title"
+      SecRule ARGS:action "@streq edit" "t:none,ctl:ruleRemoveTargetById=933160;ARGS:title,ctl:ruleRemoveTargetById=942140;ARGS:title,ctl:ruleRemoveTargetById=942151;ARGS:title,ctl:ruleRemoveTargetById=942190;ARGS:title"
+
+    # libinjection mistakes this exact reviewed wiki title for a SQL expression.
+    # Retain libinjection for every other title and every other argument.
+    SecRule REQUEST_FILENAME "@streq /w/api.php" "id:1111122,phase:2,pass,nolog,t:none,chain"
+      SecRule ARGS:action "@streq query" "t:none,chain"
+        SecRule ARGS:prop "@streq revisions" "t:none,chain"
+          SecRule ARGS:titles "@streq Rick and Morty Time (rickandmortytime.com)" "t:none,ctl:ruleRemoveTargetById=942100;ARGS:titles"
+    SecRule REQUEST_FILENAME "@streq /w/api.php" "id:1111123,phase:2,pass,nolog,t:none,chain"
+      SecRule ARGS:action "@streq edit" "t:none,chain"
+        SecRule ARGS:title "@streq Rick and Morty Time (rickandmortytime.com)" "t:none,ctl:ruleRemoveTargetById=942100;ARGS:title"
 
     # Content is data in these fields. MediaWiki supplies authentication, CSRF
     # checks, permissions and sanitisation. Other arguments remain inspected.
