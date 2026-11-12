@@ -895,6 +895,7 @@ data:
     if (!$configuredWarmHosts) {
         $configuredWarmHosts = [''];
     }
+    $forceRefreshPort = max(1, (int)(getenv('FORCE_REFRESH_PORT') ?: '{{ .Values.cacheWarmer.forceRefreshPort }}'));
     $priorityHotPagesLimit = max(0, (int)(getenv('PRIORITY_HOT_PAGES_LIMIT') ?: 20));
     $priorityPagesLimit = max(10, (int)(getenv('PRIORITY_PAGES_LIMIT') ?: 80));
     $requestTimeout = max(3, (int)(getenv('REQUEST_TIMEOUT_SECONDS') ?: 15));
@@ -1175,6 +1176,15 @@ data:
         return $expanded ?: $targets;
     }
 
+    function with_port($baseUrl, $port) {
+        $parts = parse_url($baseUrl);
+        if (!$parts || empty($parts['host'])) {
+            return $baseUrl;
+        }
+        return ($parts['scheme'] ?? 'http') . '://' . $parts['host'] . ':' . $port
+            . rtrim($parts['path'] ?? '', '/');
+    }
+
     $seedPages = load_json($seedFile, ['pages' => []])['pages'] ?? [];
     $translationPages = load_json($translationFile, ['pages' => []])['pages'] ?? [];
     $hotPages = load_json($hotFile, ['pages' => []])['pages'] ?? [];
@@ -1229,13 +1239,20 @@ data:
         $allOk = true;
         $uncacheableResponses = 0;
         $requests = [];
+        $normalRequests = [];
         $metadata = [];
         foreach ($warmHeaderSets as $headerSet) {
             foreach ($warmTargets as $base) {
-                $requests[] = [
+                $normalRequests[] = [
                     'url' => $base . $path,
                     'headers' => $headerSet['headers'],
                 ];
+                // Keep the homepage fresh even when a large profile warming
+                // batch is still in progress. Native parser caching remains on.
+                $requests[] = $path === '/wiki/Main_Page' ? [
+                    'url' => with_port($base, $forceRefreshPort) . $path,
+                    'headers' => array_merge($headerSet['headers'], ['X-WikiApiary-Force-Refresh: 1']),
+                ] : end($normalRequests);
                 $metadata[] = [
                     'base' => $base,
                     'host' => $headerSet['host'],
@@ -1245,8 +1262,8 @@ data:
         $responses = request_urls($requests, $requestTimeout);
         $retryRequests = [];
         foreach ($responses as $index => $refresh) {
-            if (!empty($refresh['ok']) && (($refresh['cache'] ?? '') !== 'HIT' || ($refresh['age'] ?? null) === null)) {
-                $retryRequests[$index] = $requests[$index];
+            if (!empty($refresh['ok']) && ($path === '/wiki/Main_Page' || ($refresh['cache'] ?? '') !== 'HIT' || ($refresh['age'] ?? null) === null)) {
+                $retryRequests[$index] = $normalRequests[$index];
             }
         }
         if ($retryRequests) {
