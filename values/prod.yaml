@@ -94,8 +94,8 @@ cacheWarmer:
   enabled: true
   workerEnabled: true
   suspend: false
-  # Temporary index-recovery priority. Main Page continues to refresh each minute.
-  backgroundSuspend: true
+  # Membership repair is complete. Keep the dedicated homepage refresh each minute.
+  backgroundSuspend: false
   # Cache automation must be registry-backed: the application image is loaded
   # onto selected nodes and is not a reliable runtime for scheduled Jobs.
   image: "docker.io/library/php:8.3.36-cli-alpine3.23@sha256:af2cec36df60396ca5e168729f38e7c8c59548a0a655fbcc362853aeda18921d"
@@ -176,8 +176,8 @@ elasticsearch:
 
 jobrunner:
   enabled: true
-  # Reserve database write capacity for the bounded inventory repair fleet.
-  replicaCount: 0
+  # One worker shares database capacity with the bounded metadata follow-up.
+  replicaCount: 1
   nodeSelector:
     wikiapiary-role: worker
     kubernetes.io/hostname: dobriyai-hosting-2
