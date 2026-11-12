@@ -24,6 +24,8 @@ def cases():
         ("Whois feed", "/w/api.php", {"action": "feedrecentchanges", "target": "Sveti_Vlas/Whois", "feedformat": "atom", "limit": "1"}, "GET"),
         ("Whois login return", "/w/index.php", {"title": "Special:UserLogin", "returnto": "Sveti_Vlas/Whois"}, "GET"),
         ("SMW subject JSON", "/w/api.php", {"action": "smwbrowse", "browse": "subject", "params": params, "format": "json"}, "POST"),
+        ("SMW literal Database title", "/w/api.php", {"action": "smwbrowse", "browse": "subject", "params": json.dumps({"subject": "ViewSonic User Guide Database (manuals.viewsonic.com)", "ns": 0}), "format": "json"}, "GET"),
+        ("SMW literal UTF-8 title", "/w/api.php", {"action": "smwbrowse", "browse": "subject", "params": json.dumps({"subject": "База знаний VINTEO (wiki.vinteo.com)", "ns": 0}, ensure_ascii=False), "format": "json"}, "GET"),
         ("Login history query", "/w/index.php", {"title": "Special:UserLogin", "returnto": "Main_Page", "returntoquery": "action=history&offset=20171030191406%7C3939931&limit=50"}, "GET"),
         ("Account browse query", "/w/index.php", {"title": "Special:CreateAccount", "returnto": "Special:Browse", "returntoquery": "offset=0&dir=both&article=ZDXPedia%2FNamespaces&group=hide"}, "GET"),
         ("Login exclamation title", "/w/index.php", {"title": "Special:UserLogin", "returnto": "Special:Browse/:Snap!-20Wiki-23Extension-5FGuidedTour"}, "GET"),
@@ -39,6 +41,8 @@ def cases():
     yield "SMW exception restricted to action", "/w/api.php", {"action": "query", "params": params}, "POST", True
     yield "Whois title shell substitution denied", "/w/index.php", {"title": "$(id)/Whois"}, "GET", True
     yield "SMW params XSS denied", "/w/api.php", {"action": "smwbrowse", "browse": "subject", "params": '{"subject":"<script>alert(1)</script>","options":{"dir":null}}'}, "POST", True
+    yield "SMW params SQL injection denied", "/w/api.php", {"action": "smwbrowse", "browse": "subject", "params": '{"subject":"1 UNION SELECT password FROM users--","ns":0}'}, "GET", True
+    yield "SMW database title exception requires subject action", "/w/api.php", {"action": "query", "params": '{"subject":"User Guide Database (example.org)","ns":0}'}, "GET", True
     yield "Login return XSS denied", "/w/index.php", {"title": "Special:UserLogin", "returnto": "<script>alert(1)</script>"}, "GET", True
     yield "Non-wiki executable suffix denied", "/probe.com", {}, "GET", True
     yield "Bulk title exception requires revision property", "/w/api.php", {"action": "query", "prop": "info", "titles": "Main Page|Script Gallerie Photos de Carlito"}, "GET", True
