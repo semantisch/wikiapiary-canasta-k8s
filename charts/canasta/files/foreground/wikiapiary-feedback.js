@@ -5,6 +5,31 @@
 		var trigger = document.getElementById( 'wikiapiary-feedback' );
 		var loading = false;
 		var ready = false;
+		// Older cached page HTML may predate the native tab. Upgrade only this
+		// optional control so deploying feedback never requires flushing wiki pages.
+		if ( !trigger && document.body.classList.contains( 'skin-foreground' ) && window.parent === window ) {
+			trigger = document.createElement( 'a' );
+			trigger.id = 'wikiapiary-feedback';
+			trigger.className = 'hide-for-print';
+			trigger.href = 'https://featurehub.dobriy.ai/embed/wikiapiary';
+			trigger.setAttribute( 'role', 'button' );
+			trigger.setAttribute( 'aria-haspopup', 'dialog' );
+			trigger.setAttribute( 'aria-expanded', 'false' );
+			trigger.title = 'Suggest a feature or report a bug';
+			var sourceLogo = document.querySelector( '.top-bar-logo' );
+			if ( sourceLogo ) {
+				var logo = sourceLogo.cloneNode();
+				logo.removeAttribute( 'class' );
+				logo.alt = '';
+				logo.width = 28;
+				logo.height = 28;
+				trigger.appendChild( logo );
+			}
+			var label = document.createElement( 'span' );
+			label.textContent = 'Feedback';
+			trigger.appendChild( label );
+			document.body.appendChild( trigger );
+		}
 		if ( !trigger || trigger.dataset.bound ) {
 			return;
 		}
