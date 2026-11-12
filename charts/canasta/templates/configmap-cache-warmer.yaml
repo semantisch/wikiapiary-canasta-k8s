@@ -1259,7 +1259,21 @@ data:
                 ];
             }
         }
-        $responses = request_urls($requests, $requestTimeout);
+        if ($path === '/wiki/Main_Page' && count($requests) > 1) {
+            // Refill the shared MediaWiki parser cache once before asking
+            // every edge replica and hostname to fetch the refreshed page.
+            $responses = request_urls([0 => $requests[0]], $requestTimeout);
+            if (!empty($responses[0]['ok'])) {
+                $responses += request_urls(array_slice($requests, 1, null, true), $requestTimeout);
+            } else {
+                foreach (array_slice($requests, 1, null, true) as $index => $request) {
+                    $responses[$index] = ['ok' => false, 'status' => 0,
+                        'error' => 'Homepage refresh deferred after first target failed'];
+                }
+            }
+        } else {
+            $responses = request_urls($requests, $requestTimeout);
+        }
         $retryRequests = [];
         foreach ($responses as $index => $refresh) {
             if (!empty($refresh['ok']) && ($path === '/wiki/Main_Page' || ($refresh['cache'] ?? '') !== 'HIT' || ($refresh['age'] ?? null) === null)) {

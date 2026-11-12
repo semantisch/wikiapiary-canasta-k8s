@@ -10,6 +10,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
@@ -18,9 +19,21 @@ import yaml
 
 class CacheBackendHandler(BaseHTTPRequestHandler):
     received: list[tuple[str, str | None]] = []
+    homepage_seed_pending = False
+    homepage_seed_started = False
+    homepage_overlap = False
+    homepage_fail = False
 
     def do_GET(self) -> None:  # noqa: N802 - stdlib callback name
         parsed = urlparse(self.path)
+        homepage_forced = parsed.path == "/wiki/Main_Page" and self.headers.get("X-WikiApiary-Force-Refresh") == "1"
+        if homepage_forced and type(self).homepage_seed_pending:
+            if type(self).homepage_seed_started:
+                type(self).homepage_overlap = True
+            else:
+                type(self).homepage_seed_started = True
+                time.sleep(0.2)
+                type(self).homepage_seed_pending = False
         type(self).received.append(
             (parsed.path, self.headers.get("X-WikiApiary-Force-Refresh"))
         )
@@ -30,6 +43,8 @@ class CacheBackendHandler(BaseHTTPRequestHandler):
         cache_status = "HIT"
         cache_age: str | None = "42"
         status = 200
+        if homepage_forced and type(self).homepage_fail:
+            status = 503
         location: str | None = None
 
         if parsed.path == "/w/api.php":
@@ -265,7 +280,12 @@ def validate(rendered_path: Path) -> None:
                 "PRIORITY_PAGES_LIMIT": "10",
             }
             priority_start = len(CacheBackendHandler.received)
+            CacheBackendHandler.homepage_seed_pending = True
+            CacheBackendHandler.homepage_seed_started = False
+            CacheBackendHandler.homepage_overlap = False
             run_checked(["php", str(script_dir / "priority.php")], env=priority_env)
+            if CacheBackendHandler.homepage_overlap:
+                raise RuntimeError("homepage cache misses overlapped before first render finished")
             priority_requests = CacheBackendHandler.received[priority_start:]
             if (("/wiki/Main_Page", "1") not in priority_requests
                     or ("/wiki/Main_Page", None) not in priority_requests):
@@ -306,6 +326,24 @@ def validate(rendered_path: Path) -> None:
             )
             if "/wiki/Uncacheable" not in priority_uncacheable.get("pages", {}):
                 raise RuntimeError("no-store page was not persisted in priority skip list")
+
+            failed_start = len(CacheBackendHandler.received)
+            CacheBackendHandler.homepage_fail = True
+            failed_run = subprocess.run(["php", str(script_dir / "priority.php")],
+                                        env=priority_env, capture_output=True, text=True, timeout=30)
+            CacheBackendHandler.homepage_fail = False
+            if failed_run.returncode != 1:
+                raise RuntimeError("failed homepage render must return a failed warmer status")
+            forced = [r for r in CacheBackendHandler.received[failed_start:]
+                      if r == ("/wiki/Main_Page", "1")]
+            # request_urls permits three attempts on the first target.
+            # The other hostname must receive none after all three fail.
+            if len(forced) != 3:
+                raise RuntimeError("failed homepage render must stop remaining forced requests")
+            failed_report = json.loads((cache_dir / "priority-warm-run.json").read_text())
+            failed_home = next(r for r in failed_report["results"] if r["path"] == "/wiki/Main_Page")
+            if failed_home.get("ok") or failed_home.get("skippedUncacheable"):
+                raise RuntimeError("failed homepage refresh must remain retryable and unverified")
 
             worker = scripts["worker.php"]
             # Reproduce a homepage purge waiting behind a large import backlog.
