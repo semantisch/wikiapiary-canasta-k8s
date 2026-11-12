@@ -810,6 +810,17 @@ configData:
       };
 
       $wgHooks['ArticlePurge'][] = static function ( $wikiPage ) {
+          // SMW's query-subobject links can lag behind a changed homepage.
+          // Evict the page's own linked query results too, so new registrations
+          // and native counts are refreshed before Varnish is warmed again.
+          if ( $wikiPage->getTitle()->getDBkey() === 'Main_Page'
+              && class_exists( '\\SMW\\Services\\ServicesFactory' ) ) {
+              \SMW\Services\ServicesFactory::getInstance()->create( 'ResultCache' )
+                  ->invalidateCache(
+                      \SMW\DIWikiPage::newFromTitle( $wikiPage->getTitle() ),
+                      'WikiApiaryHomepagePurge'
+                  );
+          }
           $path = wfWikiApiaryRewarmPathFromTitleLike( $wikiPage->getTitle() );
           wfWikiApiaryAppendRewarmQueue(
               wfWikiApiaryMaybeExpandTranslatedMainPages( [ $path ] ),
