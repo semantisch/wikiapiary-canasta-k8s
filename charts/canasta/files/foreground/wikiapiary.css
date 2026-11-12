@@ -315,6 +315,22 @@
   margin: 0;
 }
 
+/* Indicators sit below the navigation. Foreground's negative top margin
+ * places the diff Help link behind the header, and its height cap clips wraps. */
+.skin-foreground .mw-indicators {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem 1rem;
+  float: none;
+  margin: 0.75rem 0;
+  max-height: none;
+}
+
+.skin-foreground .mw-indicators:empty {
+  display: none;
+}
+
 .skin-foreground .mw-search-results-container,
 .skin-foreground .mw-search-results {
   max-width: 100%;
@@ -573,7 +589,6 @@
   padding: 0 !important;
   overflow: hidden;
   border: 1px solid var(--wa-border);
-  border-top: 4px solid var(--wa-brand);
   border-collapse: separate;
   border-spacing: 0;
   border-radius: var(--wa-radius);
