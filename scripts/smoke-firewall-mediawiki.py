@@ -15,6 +15,8 @@ def cases():
                          "subobject": "", "options": {"dir": None, "lang": "en",
                          "group": None, "offset": None}, "type": "html"})
     benign = [
+        ("Literal PHP-like revision title", "/w/api.php", {"action": "query", "prop": "revisions", "rvprop": "ids", "titles": "System (wiki.bunnfamily.nz)", "format": "json"}, "GET"),
+        ("Literal PHP-like edit title without token", "/w/api.php", {"action": "edit", "title": "System (wiki.bunnfamily.nz)", "format": "json"}, "POST"),
         ("Bulk revision titles", "/w/api.php", {"action": "query", "prop": "revisions", "rvprop": "ids", "titles": "Main Page|Script Gallerie Photos de Carlito (albumphoto.charles-gaudon.com)", "format": "json"}, "GET"),
         ("ResourceLoader history module", "/w/load.php", {"modules": "mediawiki.action.history", "only": "scripts", "lang": "en"}, "GET"),
         ("Whois article", "/w/index.php", {"title": "Sveti_Vlas/Whois"}, "GET"),
