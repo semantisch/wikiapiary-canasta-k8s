@@ -137,7 +137,8 @@ class foregroundTemplate extends BaseTemplate {
 			</ul>
 
 			<ul id="top-bar-right" class="right">
-				<li class="has-form">
+				<li class="has-form wikiapiary-search-actions">
+					<a id="wikiapiary-sparql" href="https://wikiapiary.graph.dobriy.ai/" title="Query WikiApiary semantic data, preview">SPARQL</a>
 					<form action="<?php $this->text( 'wgScript' ); ?>" id="searchform" class="mw-search">
 						<div class="row collapse">
 						<div class="small-12 columns">
