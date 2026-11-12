@@ -62,6 +62,13 @@ data:
     # A.I.M.$_(...) is a wiki title. Exclude this one filename-only PHP heuristic.
     SecRule REQUEST_FILENAME "@beginsWith /wiki/A.I.M.$_(" "id:1111118,phase:2,pass,nolog,t:none,ctl:ruleRemoveTargetById=933180;REQUEST_FILENAME"
 
+    # Revision queries use pipes between literal wiki titles. A title beginning
+    # with Script after that separator is not a shell command. Limit the
+    # exception to the observed rule, action, property and titles argument.
+    SecRule REQUEST_FILENAME "@streq /w/api.php" "id:1111119,phase:2,pass,nolog,t:none,chain"
+      SecRule ARGS:action "@streq query" "t:none,chain"
+        SecRule ARGS:prop "@streq revisions" "t:none,ctl:ruleRemoveTargetById=932235;ARGS:titles"
+
     # Content is data in these fields. MediaWiki supplies authentication, CSRF
     # checks, permissions and sanitisation. Other arguments remain inspected.
     # Phase 2 is needed to see action and text in POST form bodies.

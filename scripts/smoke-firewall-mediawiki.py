@@ -15,6 +15,7 @@ def cases():
                          "subobject": "", "options": {"dir": None, "lang": "en",
                          "group": None, "offset": None}, "type": "html"})
     benign = [
+        ("Bulk revision titles", "/w/api.php", {"action": "query", "prop": "revisions", "rvprop": "ids", "titles": "Main Page|Script Gallerie Photos de Carlito (albumphoto.charles-gaudon.com)", "format": "json"}, "GET"),
         ("ResourceLoader history module", "/w/load.php", {"modules": "mediawiki.action.history", "only": "scripts", "lang": "en"}, "GET"),
         ("Whois article", "/w/index.php", {"title": "Sveti_Vlas/Whois"}, "GET"),
         ("Whois backlinks", "/w/index.php", {"title": "Special:WhatLinksHere", "target": "Sveti_Vlas/Whois", "limit": "1"}, "GET"),
@@ -38,6 +39,8 @@ def cases():
     yield "SMW params XSS denied", "/w/api.php", {"action": "smwbrowse", "browse": "subject", "params": '{"subject":"<script>alert(1)</script>","options":{"dir":null}}'}, "POST", True
     yield "Login return XSS denied", "/w/index.php", {"title": "Special:UserLogin", "returnto": "<script>alert(1)</script>"}, "GET", True
     yield "Non-wiki executable suffix denied", "/probe.com", {}, "GET", True
+    yield "Bulk title exception requires revision property", "/w/api.php", {"action": "query", "prop": "info", "titles": "Main Page|Script Gallerie Photos de Carlito"}, "GET", True
+    yield "Bulk title exception excludes other arguments", "/w/api.php", {"action": "query", "prop": "revisions", "titles": "Main Page", "waf_probe": "Main Page|Script Gallerie Photos de Carlito"}, "GET", True
 
 
 def main():
