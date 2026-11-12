@@ -5,6 +5,24 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
+  name: {{ include "canasta.fullname" $root }}-waf-{{ sha256sum $host | trunc 8 }}-upstream
+  namespace: {{ include "canasta.namespace" $root }}
+  labels:
+    {{- include "canasta.labels" $root | nindent 4 }}
+  annotations:
+    bunkerweb.io/CONFIG_TYPE: server-http
+    bunkerweb.io/CONFIG_SITE: {{ $host | quote }}
+data:
+  wikiapiary-upstream.conf: |
+    # The headless Caddy Service resolves to independent ready replicas.
+    # Do not enable non_idempotent: a POST already sent must never be replayed.
+    proxy_next_upstream error timeout http_502 http_503 http_504;
+    proxy_next_upstream_tries 2;
+    proxy_next_upstream_timeout 5s;
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
   name: {{ include "canasta.fullname" $root }}-waf-{{ sha256sum $host | trunc 8 }}-response
   namespace: {{ include "canasta.namespace" $root }}
   labels:
