@@ -1,5 +1,7 @@
 vcl 4.1;
 
+import purge as homepage_purge;
+
 # Borrowed from mediawiki.org/wiki/Manual:Varnish_caching
 # and modified for Canasta
 
@@ -34,6 +36,12 @@ sub vcl_recv {
         if (!client.ip ~ purge) {
             return (synth(405, "Not allowed."));
         } else {
+            # Routine statistics updates invalidate the homepage frequently.
+            # Keep its last public response available during regeneration.
+            # Other pages retain immediate hard invalidation.
+            if (req.url == "/wiki/Main_Page") {
+                return (hash);
+            }
             return (purge);
         }
     }
@@ -150,6 +158,10 @@ sub vcl_pipe {
 
 # Called if the cache has a copy of the page.
 sub vcl_hit {
+        if (req.method == "PURGE") {
+            homepage_purge.soft(0s, 1h, 0s);
+            return (synth(200, "Homepage refresh scheduled"));
+        }
         set req.http.X-WikiApiary-Cache = "HIT";
         # Let Varnish deliver objects within grace and refresh in the background.
         # Passing expired objects defeated grace precisely when PHP was overloaded.
@@ -157,6 +169,9 @@ sub vcl_hit {
 }
 
 sub vcl_synth {
+    if (req.method == "PURGE") {
+        set resp.http.Cache-Control = "no-store";
+    }
     if (resp.status == 429) {
         set resp.http.Retry-After = "3600";
         set resp.http.Cache-Control = "no-store";
@@ -164,6 +179,10 @@ sub vcl_synth {
 }
 
 sub vcl_miss {
+        if (req.method == "PURGE") {
+            homepage_purge.soft(0s, 1h, 0s);
+            return (synth(200, "Homepage not cached"));
+        }
         set req.http.X-WikiApiary-Cache = "MISS";
         return (fetch);
 }
@@ -175,6 +194,10 @@ sub vcl_pass {
 
 # Called after a document has been successfully retrieved from the backend.
 sub vcl_backend_response {
+        # Failed background refreshes must not replace a usable public page.
+        if (bereq.is_bgfetch && beresp.status >= 500) {
+            return (abandon);
+        }
         # Never retain error pages. In particular, a transient farm-routing 404
         # must not remain visible after routing is repaired.
         if (beresp.status >= 400) {

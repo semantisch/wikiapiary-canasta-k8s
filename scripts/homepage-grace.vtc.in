@@ -1,0 +1,45 @@
+varnishtest "Homepage serves stale during slow refresh, ordinary pages hard purge"
+barrier b1 cond 2
+server s1 {
+    rxreq
+    txresp -hdr "Cache-Control: public, s-maxage=600" -body "old-home"
+    rxreq
+    barrier b1 sync
+    txresp -hdr "Cache-Control: public, s-maxage=600" -body "new-home"
+    rxreq
+    txresp -hdr "Cache-Control: public, s-maxage=600" -body "old-profile"
+    rxreq
+    txresp -hdr "Cache-Control: public, s-maxage=600" -body "new-profile"
+} -start
+varnish v1 -vcl {
+__VCL__
+} -start
+client c1 {
+    txreq -url /wiki/Main_Page -hdr "Host: wikiapiary.test"
+    rxresp
+    expect resp.body == "old-home"
+    txreq -req PURGE -url /wiki/Main_Page -hdr "Host: wikiapiary.test"
+    rxresp
+    expect resp.status == 200
+    txreq -url /wiki/Main_Page -hdr "Host: wikiapiary.test"
+    rxresp
+    expect resp.body == "old-home"
+    barrier b1 sync
+} -run
+# Wait until the background response has replaced the old object.
+delay 0.5
+client c2 {
+    txreq -url /wiki/Main_Page -hdr "Host: wikiapiary.test"
+    rxresp
+    expect resp.body == "new-home"
+    txreq -url /wiki/Profile -hdr "Host: wikiapiary.test"
+    rxresp
+    expect resp.body == "old-profile"
+    txreq -req PURGE -url /wiki/Profile -hdr "Host: wikiapiary.test"
+    rxresp
+    expect resp.status == 200
+    txreq -url /wiki/Profile -hdr "Host: wikiapiary.test"
+    rxresp
+    expect resp.body == "new-profile"
+} -run
+server s1 -wait

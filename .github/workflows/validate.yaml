@@ -64,3 +64,11 @@ jobs:
 
       - name: Validate cache-warmer scripts and behavior
         run: python3 scripts/validate-cache-warmer.py /tmp/wikiapiary-rendered.yaml
+
+      - name: Verify homepage refresh serves cached content without waiting
+        run: |
+          python3 scripts/render-homepage-cache-test.py > "$RUNNER_TEMP/homepage-grace.vtc"
+          docker run --rm --entrypoint varnishtest \
+            -v "$RUNNER_TEMP/homepage-grace.vtc:/test.vtc:ro" \
+            varnish:7.0.2-alpine@sha256:136ebffb7de1b5f1b16ec07b2225088d5b888cb434c4484b684e06e634c19aa2 \
+            -t 15 /test.vtc

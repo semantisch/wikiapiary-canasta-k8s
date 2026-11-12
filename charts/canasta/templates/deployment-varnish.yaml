@@ -83,6 +83,10 @@ spec:
                     printf '{"stamp":"%s-startup","podIp":"%s"}\n' "$(date +%s)" "${POD_IP}" > /warm-cache/varnish-startup.stamp
           volumeMounts:
             - name: varnish-config
+              mountPath: /etc/varnish/readiness.sh
+              subPath: readiness.sh
+              readOnly: true
+            - name: varnish-config
               mountPath: /etc/varnish/default.vcl
               subPath: default.vcl
               readOnly: true
@@ -93,8 +97,14 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           readinessProbe:
+            {{- if .Values.varnish.warmHomepageBeforeReady }}
+            exec:
+              command: ["/bin/sh", "/etc/varnish/readiness.sh"]
+            timeoutSeconds: 25
+            {{- else }}
             tcpSocket:
               port: http
+            {{- end }}
             periodSeconds: 10
           livenessProbe:
             tcpSocket:

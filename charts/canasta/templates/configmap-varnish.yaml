@@ -7,6 +7,21 @@ metadata:
     {{- include "canasta.labels" . | nindent 4 }}
     app.kubernetes.io/component: varnish
 data:
+  readiness.sh: |
+    #!/bin/sh
+    set -eu
+    nc -z 127.0.0.1 80
+    if [ -f /tmp/wikiapiary-homepage-warm ]; then
+      exit 0
+    fi
+    headers=$(mktemp)
+    trap 'rm -f "$headers"' EXIT
+    {{- range $host := (include "canasta.hosts" . | fromJsonArray) }}
+    wget -q -S -T 20 -t 1 -O /dev/null --header={{ printf "Host: %s" $host | quote }} \
+      http://127.0.0.1/wiki/Main_Page 2>"$headers"
+    grep -qi 'X-WikiApiary-Cache: HIT' "$headers"
+    {{- end }}
+    touch /tmp/wikiapiary-homepage-warm
   {{- $primaryHost := include "canasta.primaryHost" . }}
   {{- if .Values.configData.varnish }}
   {{- range $key, $value := .Values.configData.varnish }}
