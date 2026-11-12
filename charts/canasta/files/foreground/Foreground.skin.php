@@ -280,6 +280,10 @@ class foregroundTemplate extends BaseTemplate {
 			</footer>
 
 		</div>
+		<a id="wikiapiary-feedback" class="hide-for-print" href="https://featurehub.dobriy.ai/embed/wikiapiary"
+			role="button" aria-haspopup="dialog" aria-expanded="false" title="Suggest a feature or report a bug">
+			<img src="<?php echo $this->text('logopath'); ?>" alt="" width="28" height="28"><span>Feedback</span>
+		</a>
 			<?php if ($this->data['isarticle'] && $wgForegroundFeatures['addThisPUBID'] !== '') { ?>
 				<script type="text/javascript" src="//s7.addthis.com/js/300/addthis_widget.js#pubid=<?php echo $wgForegroundFeatures['addThisPUBID']; ?>" async="async">></script>
 			<?php } ?>
