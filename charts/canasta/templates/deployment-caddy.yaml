@@ -28,6 +28,9 @@ spec:
         checksum/social-preview: {{ include (print $.Template.BasePath "/configmap-social-preview.yaml") . | sha256sum }}
         checksum/caddy-config: {{ dict "config" .Values.configData.caddy "site" .Values.site | toJson | sha256sum }}
     spec:
+      # Allow endpoint removal to propagate before closing the old listener,
+      # then give in-flight requests time to finish during a rolling replacement.
+      terminationGracePeriodSeconds: 90
       {{- $nodeSelector := .Values.caddy.nodeSelector | default .Values.nodeSelector }}
       {{- with $nodeSelector }}
       nodeSelector:
@@ -54,6 +57,10 @@ spec:
       containers:
         - name: caddy
           image: {{ .Values.caddy.image | default "caddy:2.10.2-alpine" }}
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 5"]
           ports:
             - name: http
               containerPort: 80
