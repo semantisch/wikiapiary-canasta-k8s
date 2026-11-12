@@ -370,6 +370,13 @@
   letter-spacing: 0;
 }
 
+.skin-foreground h4.namespace.label {
+  padding: 0.4rem 0.65rem;
+  border-radius: var(--wa-radius-sm);
+  background: #e0f3fa;
+  color: #17546b;
+}
+
 .skin-foreground a#actions-button {
   min-height: 2.35rem;
   margin: 0 0 1rem 1rem;
