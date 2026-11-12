@@ -4,11 +4,13 @@ kind: CronJob
 metadata:
   name: {{ include "canasta.fullname" . }}-cache-discover
   namespace: {{ include "canasta.namespace" . }}
+  annotations:
+    wikiapiary.com/index-repair-priority: {{ .Values.cacheWarmer.backgroundSuspend | quote }}
   labels:
     {{- include "canasta.labels" . | nindent 4 }}
     app.kubernetes.io/component: cache-warmer
 spec:
-  suspend: {{ .Values.cacheWarmer.suspend }}
+  suspend: {{ or .Values.cacheWarmer.suspend .Values.cacheWarmer.backgroundSuspend }}
   schedule: {{ .Values.cacheWarmer.discoverSchedule | quote }}
   startingDeadlineSeconds: {{ .Values.cacheWarmer.startingDeadlineSeconds }}
   concurrencyPolicy: Forbid

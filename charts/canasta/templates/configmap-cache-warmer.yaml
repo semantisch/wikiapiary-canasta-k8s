@@ -896,8 +896,8 @@ data:
         $configuredWarmHosts = [''];
     }
     $forceRefreshPort = max(1, (int)(getenv('FORCE_REFRESH_PORT') ?: '{{ .Values.cacheWarmer.forceRefreshPort }}'));
-    $priorityHotPagesLimit = max(0, (int)(getenv('PRIORITY_HOT_PAGES_LIMIT') ?: 20));
-    $priorityPagesLimit = max(10, (int)(getenv('PRIORITY_PAGES_LIMIT') ?: 80));
+    $priorityHotPagesLimit = max(0, (int)(getenv('PRIORITY_HOT_PAGES_LIMIT') !== false ? getenv('PRIORITY_HOT_PAGES_LIMIT') : 20));
+    $priorityPagesLimit = max(1, (int)(getenv('PRIORITY_PAGES_LIMIT') !== false ? getenv('PRIORITY_PAGES_LIMIT') : 80));
     $requestTimeout = max(3, (int)(getenv('REQUEST_TIMEOUT_SECONDS') ?: 15));
     $uncacheableTtl = max(300, (int)(getenv('UNCACHEABLE_TTL_SECONDS') ?: 86400));
     $uncacheableFile = $baseDir . '/uncacheable-pages.json';

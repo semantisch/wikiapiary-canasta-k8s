@@ -96,6 +96,7 @@ cacheWarmer:
   enabled: false
   workerEnabled: false
   suspend: false
+  backgroundSuspend: false
   image: "docker.io/library/php:8.3.31-cli-alpine3.22@sha256:2f2e706ad96f295e2bc2b36dcc88e7413b7270fcd2b1532f3cfb4b6ebeca74ca"
   imagePullPolicy: IfNotPresent
   requestBaseUrl: "http://varnish"
