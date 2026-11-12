@@ -19,6 +19,7 @@ async function pageFor(viewport, blocked = false) {
     await page.route(origin + '/wiki/Main_Page', async route => {
       const response = await route.fetch();
       let html = await response.text();
+      html = html.replace(/<a id="wikiapiary-feedback"[\s\S]*?<\/a>/, '');
       const css = await fs.readFile('charts/canasta/files/foreground/wikiapiary.css', 'utf8');
       const js = await fs.readFile('charts/canasta/files/foreground/wikiapiary-feedback.js', 'utf8');
       html = html.replace('</head>', '<style>' + css + '</style></head>');
@@ -103,6 +104,24 @@ try {
   await page.locator('textarea').first().waitFor();
   results.push({ blockedSdkFallback: true });
   await context.close();
+  // Reproduce pre-release cached HTML, with no native feedback anchor.
+  const legacy = await pageFor({ width: 1280, height: 900 });
+  await legacy.page.route(origin + '/wiki/VideoLAN_Wiki/General', async route => {
+    const response = await route.fetch();
+    let html = (await response.text()).replace(/<a id="wikiapiary-feedback"[\s\S]*?<\/a>/, '');
+    if (preview) {
+      const js = await fs.readFile('charts/canasta/files/foreground/wikiapiary-feedback.js', 'utf8');
+      html = html.replace('</body>', '<script>' + js + '</script></body>');
+    }
+    await route.fulfill({ response, body: html });
+  });
+  await legacy.page.goto(origin + '/wiki/VideoLAN_Wiki/General', { waitUntil: 'domcontentloaded' });
+  await legacy.page.waitForFunction(() => document.querySelector('#wikiapiary-feedback')?.dataset.bound === 'true');
+  assert.equal(await legacy.page.locator('#wikiapiary-feedback').count(), 1);
+  await legacy.page.locator('#wikiapiary-feedback').click();
+  await legacy.page.frameLocator('#featurehub-widget iframe').locator('textarea').first().waitFor();
+  results.push({ olderCachedPage: true });
+  await legacy.context.close();
   await fs.writeFile(output + '/validation' + (preview ? '-preview' : '') + '.json', JSON.stringify(results, null, 2));
   console.log(JSON.stringify(results));
 } finally {

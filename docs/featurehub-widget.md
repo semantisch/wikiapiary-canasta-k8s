@@ -22,6 +22,8 @@ unchecked. The embedded form does not load optional analytics.
 The wiki's header, layout and tab colours remain native PHP/CSS. Only opening
 the optional feedback panel requires the external SDK. FeatureHub's scoped
 stylesheet styles its own iframe, without changing other applications.
+Previously cached HTML can acquire the same optional tab when the updated
+native script loads. This avoids invalidating the entire article cache.
 
 ## Validation
 
@@ -44,4 +46,14 @@ upload fixture before running.
 
 Deploy through the normal reviewed GitOps release. Refresh the homepage and
 warm both cache replicas after the web rollout, retaining homepage grace.
-Do not flush all cached wiki pages just to publish this integration.
+Invalidate only `/w/load.php` objects on each ready Varnish replica with
+`varnishadm ban 'req.url ~ ^/w/load[.]php'`. Startup and stylesheet URLs can
+otherwise keep the previous resource definitions. Do not flush all cached
+wiki pages just to publish this integration.
+
+The 12 November 2026 deployment passed desktop/mobile browser checks and a
+real private submission with an image. Replaying its idempotency key returned
+the same request ID. An unrelated visitor received 404, the request stayed off
+the public board, and storage contained only the site origin as page context.
+Two private validation records were marked done with audit events. Neither had
+an email address or subscribers, and no notification was requested.
