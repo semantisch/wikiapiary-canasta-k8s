@@ -946,11 +946,16 @@ configData:
               reverse_proxy varnish:80 {
                   lb_retries 2
                   lb_try_duration 5s
-                  fail_duration 30s
+                  # This address is a Kubernetes Service spanning both caches.
+                  # Quarantining it after one pod failure disables every cache.
+                  # Fresh connections let Kubernetes select a healthy endpoint.
+                  lb_retry_match {
+                      method GET HEAD
+                  }
 
                   transport http {
                       keepalive off
-                      dial_timeout 5s
+                      dial_timeout 2s
                       response_header_timeout 60s
                   }
               }
