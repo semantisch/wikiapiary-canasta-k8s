@@ -54,6 +54,7 @@ caddy:
 
 varnish:
   enabled: true
+  warmHomepageBeforeReady: true
   image: "docker.io/library/varnish:7.0.2-alpine@sha256:136ebffb7de1b5f1b16ec07b2225088d5b888cb434c4484b684e06e634c19aa2"
   imagePullPolicy: IfNotPresent
   replicaCount: 2
