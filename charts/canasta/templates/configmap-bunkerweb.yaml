@@ -110,6 +110,24 @@ data:
     # Content is data in these fields. MediaWiki supplies authentication, CSRF
     # checks, permissions and sanitisation. Other arguments remain inspected.
     # Phase 2 is needed to see action and text in POST form bodies.
+    # Batch revision titles contain pipe separators and literal names such as
+    # IRB WikiDesk, Diff.wiki and MMC Manuals. These are not shell pipelines.
+    # Markup, control characters and command substitution remain inspected.
+    SecRule REQUEST_FILENAME "@streq /w/api.php" "id:1111124,phase:2,pass,nolog,t:none,chain"
+      SecRule ARGS:action "@streq query" "t:none,chain"
+        SecRule ARGS:prop "@streq revisions" "t:none,chain"
+          SecRule ARGS:titles "@rx ^(?!.*(?:\$\(|`))[^<>{}\[\]\x00-\x1f]+$" "t:none,ctl:ruleRemoveTargetById=932230;ARGS:titles,ctl:ruleRemoveTargetById=932250;ARGS:titles,ctl:ruleRemoveTargetById=932125;ARGS:titles,ctl:ruleRemoveTargetById=932380;ARGS:titles,ctl:ruleRemoveTargetById=932370;ARGS:titles"
+
+    # Stored wiki source may describe local URLs and contain HTML metadata.
+    # These fields are content, not a server fetch URL or HTTP header.
+    SecRule REQUEST_FILENAME "@streq /w/api.php" "id:1111125,phase:2,pass,nolog,t:none,chain"
+      SecRule ARGS:action "@rx ^(?:edit|parse|visualeditor|visualeditoredit)$" "t:none,ctl:ruleRemoveTargetById=934110;ARGS:text,ctl:ruleRemoveTargetById=921130;ARGS:text,ctl:ruleRemoveTargetById=934110;ARGS:appendtext,ctl:ruleRemoveTargetById=921130;ARGS:appendtext,ctl:ruleRemoveTargetById=934110;ARGS:prependtext,ctl:ruleRemoveTargetById=921130;ARGS:prependtext"
+
+    # Rendering a Whois subpage does not invoke the whois command.
+    SecRule REQUEST_FILENAME "@streq /w/api.php" "id:1111126,phase:2,pass,nolog,t:none,chain"
+      SecRule ARGS:action "@streq parse" "t:none,chain"
+        SecRule ARGS:page "@rx /Whois$" "t:none,ctl:ruleRemoveTargetById=932340;ARGS:page"
+
     SecRule REQUEST_FILENAME "@rx ^/w/api\.php$" "id:1111101,phase:2,pass,nolog,t:none,chain"
       SecRule ARGS:action "@rx ^(?:edit|parse|visualeditor|visualeditoredit)$" "ctl:ruleRemoveTargetByTag=attack-xss;ARGS:text,ctl:ruleRemoveTargetByTag=attack-sqli;ARGS:text,ctl:ruleRemoveTargetByTag=attack-rce;ARGS:text,ctl:ruleRemoveTargetByTag=attack-lfi;ARGS:text,ctl:ruleRemoveTargetByTag=attack-rfi;ARGS:text,ctl:ruleRemoveTargetByTag=attack-injection-php;ARGS:text,ctl:ruleRemoveTargetByTag=attack-xss;ARGS:appendtext,ctl:ruleRemoveTargetByTag=attack-sqli;ARGS:appendtext,ctl:ruleRemoveTargetByTag=attack-rce;ARGS:appendtext,ctl:ruleRemoveTargetByTag=attack-lfi;ARGS:appendtext,ctl:ruleRemoveTargetByTag=attack-rfi;ARGS:appendtext,ctl:ruleRemoveTargetByTag=attack-injection-php;ARGS:appendtext,ctl:ruleRemoveTargetByTag=attack-xss;ARGS:prependtext,ctl:ruleRemoveTargetByTag=attack-sqli;ARGS:prependtext,ctl:ruleRemoveTargetByTag=attack-rce;ARGS:prependtext,ctl:ruleRemoveTargetByTag=attack-lfi;ARGS:prependtext,ctl:ruleRemoveTargetByTag=attack-rfi;ARGS:prependtext,ctl:ruleRemoveTargetByTag=attack-injection-php;ARGS:prependtext,ctl:ruleRemoveTargetByTag=attack-xss;ARGS:html,ctl:ruleRemoveTargetByTag=attack-sqli;ARGS:html,ctl:ruleRemoveTargetByTag=attack-rce;ARGS:html,ctl:ruleRemoveTargetByTag=attack-lfi;ARGS:html,ctl:ruleRemoveTargetByTag=attack-rfi;ARGS:html,ctl:ruleRemoveTargetByTag=attack-injection-php;ARGS:html,ctl:ruleRemoveTargetByTag=attack-xss;ARGS:summary,ctl:ruleRemoveTargetByTag=attack-sqli;ARGS:summary,ctl:ruleRemoveTargetByTag=attack-rce;ARGS:summary,ctl:ruleRemoveTargetByTag=attack-lfi;ARGS:summary,ctl:ruleRemoveTargetByTag=attack-rfi;ARGS:summary,ctl:ruleRemoveTargetByTag=attack-injection-php;ARGS:summary,ctl:ruleRemoveTargetByTag=attack-xss;ARGS:sectiontitle,ctl:ruleRemoveTargetByTag=attack-sqli;ARGS:sectiontitle,ctl:ruleRemoveTargetByTag=attack-rce;ARGS:sectiontitle,ctl:ruleRemoveTargetByTag=attack-lfi;ARGS:sectiontitle,ctl:ruleRemoveTargetByTag=attack-rfi;ARGS:sectiontitle,ctl:ruleRemoveTargetByTag=attack-injection-php;ARGS:sectiontitle"
 

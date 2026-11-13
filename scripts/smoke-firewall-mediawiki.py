@@ -15,6 +15,12 @@ def cases():
                          "subobject": "", "options": {"dir": None, "lang": "en",
                          "group": None, "offset": None}, "type": "html"})
     benign = [
+        ('IRB batch titles', '/w/api.php', {'action': 'query', 'prop': 'revisions', 'rvprop': 'ids', 'titles': 'IRB WikiDesk|IRB WikiDesk/General', 'format': 'json'}, 'GET'),
+        ('Diff batch titles', '/w/api.php', {'action': 'query', 'prop': 'revisions', 'rvprop': 'ids', 'titles': 'Buddhism Chat (wiki.buddhism-chat.org)|Diff.wiki (diff.wiki)', 'format': 'json'}, 'GET'),
+        ('San batch titles', '/w/api.php', {'action': 'query', 'prop': 'revisions', 'rvprop': 'ids', 'titles': 'San Francisco Rush Wiki (sfrush.org)|San Francisco Rush Wiki (sfrush.org)/General', 'format': 'json'}, 'GET'),
+        ('MMC batch titles', '/w/api.php', {'action': 'query', 'prop': 'revisions', 'rvprop': 'ids', 'titles': 'MMC Manuals (mmc-manuals.ru)|MMC Manuals (mmc-manuals.ru)/General', 'format': 'json'}, 'GET'),
+        ('Metadata local URL', '/w/api.php', {'action': 'edit', 'title': 'User:WikiBees Manager/WAF validation', 'text': '{{General siteinfo|server=http://127.0.0.1}}', 'format': 'json'}, 'POST'),
+        ('Metadata HTML example', '/w/api.php', {'action': 'edit', 'title': 'User:WikiBees Manager/WAF validation', 'text': '{{Extension in use|Extension author=<meta http-equiv="refresh" content="0">}}', 'format': 'json'}, 'POST'),
         ("Literal database revision title", "/w/api.php", {"action": "query", "prop": "revisions", "rvprop": "ids", "titles": "Intranet Movie Database (intranet-movies.wikibase.cloud)", "format": "json"}, "GET"),
         ("Literal database edit title without token", "/w/api.php", {"action": "edit", "title": "Intranet Movie Database (intranet-movies.wikibase.cloud)", "format": "json"}, "POST"),
         ("Reviewed Rick and Morty revision title", "/w/api.php", {"action": "query", "prop": "revisions", "rvprop": "ids", "titles": "Rick and Morty Time (rickandmortytime.com)", "format": "json"}, "GET"),
@@ -58,6 +64,9 @@ def cases():
     yield "Login return XSS denied", "/w/index.php", {"title": "Special:UserLogin", "returnto": "<script>alert(1)</script>"}, "GET", True
     yield "Non-wiki executable suffix denied", "/probe.com", {}, "GET", True
     yield "Bulk title exception requires revision property", "/w/api.php", {"action": "query", "prop": "info", "titles": "Main Page|Script Gallerie Photos de Carlito"}, "GET", True
+    yield "Batch title shell substitution denied", "/w/api.php", {"action": "query", "prop": "revisions", "titles": "Main Page|$(cat /etc/passwd)"}, "GET", True
+    yield "Batch title command exception requires revision property", "/w/api.php", {"action": "query", "prop": "info", "titles": "Main Page|IRB WikiDesk"}, "GET", True
+    yield "Content URL exception excludes other arguments", "/w/api.php", {"action": "edit", "title": "Main Page", "text": "ordinary", "waf_probe": "http://169.254.169.254/latest/meta-data/"}, "POST", True
     yield "Bulk title exception excludes other arguments", "/w/api.php", {"action": "query", "prop": "revisions", "titles": "Main Page", "waf_probe": "Main Page|Script Gallerie Photos de Carlito"}, "GET", True
 
 
