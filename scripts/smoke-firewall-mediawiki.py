@@ -15,6 +15,10 @@ def cases():
                          "subobject": "", "options": {"dir": None, "lang": "en",
                          "group": None, "offset": None}, "type": "html"})
     benign = [
+        ('Newsbin revision batch', '/w/api.php', {'action': 'query', 'prop': 'revisions', 'rvprop': 'ids', 'titles': 'Newsbin|Newsbin/General|Newsbin/Extensions|Newsbin/Statistics snapshot', 'format': 'json'}, 'GET'),
+        ('Newsbin edit title without token', '/w/api.php', {'action': 'edit', 'title': 'Newsbin/Extensions', 'format': 'json'}, 'POST'),
+        ('Newsbin purge title', '/w/api.php', {'action': 'purge', 'titles': 'Newsbin/Extensions', 'format': 'json'}, 'POST'),
+        ('BASE64 Whois title', '/w/index.php', {'title': 'BASE64_Tecnologia_-_Wiki/Whois', 'oldid': '6841596', 'diff': 'next'}, 'GET'),
         ('IRB edit title without token', '/w/api.php', {'action': 'edit', 'title': 'IRB WikiDesk/General', 'format': 'json'}, 'POST'),
         ('PHP-like purge title', '/w/api.php', {'action': 'purge', 'titles': 'Wiki Power System (powersystem.info)', 'format': 'json'}, 'POST'),
         ('IRB batch titles', '/w/api.php', {'action': 'query', 'prop': 'revisions', 'rvprop': 'ids', 'titles': 'IRB WikiDesk|IRB WikiDesk/General', 'format': 'json'}, 'GET'),
@@ -69,6 +73,10 @@ def cases():
     yield "Batch title shell substitution denied", "/w/api.php", {"action": "query", "prop": "revisions", "titles": "Main Page|$(cat /etc/passwd)"}, "GET", True
     yield "Batch title command exception requires revision property", "/w/api.php", {"action": "query", "prop": "info", "titles": "Main Page|IRB WikiDesk"}, "GET", True
     yield "Content URL exception excludes other arguments", "/w/api.php", {"action": "edit", "title": "Main Page", "text": "ordinary", "waf_probe": "http://169.254.169.254/latest/meta-data/"}, "POST", True
+    yield 'Newsbin exception requires revisions', '/w/api.php', {'action': 'query', 'prop': 'info', 'titles': 'Newsbin/Extensions'}, 'GET', True
+    yield 'Newsbin exception excludes other fields', '/w/api.php', {'action': 'query', 'prop': 'revisions', 'titles': 'Newsbin/Extensions', 'waf_probe': '/bin/ex'}, 'GET', True
+    yield 'Newsbin shell substitution denied', '/w/api.php', {'action': 'query', 'prop': 'revisions', 'titles': 'Newsbin/Extensions|$(id)'}, 'GET', True
+    yield 'BASE64 exception excludes other fields', '/w/index.php', {'title': 'BASE64_Tecnologia_-_Wiki/Whois', 'waf_probe': 'base64 /etc/passwd'}, 'GET', True
     yield "Bulk title exception excludes other arguments", "/w/api.php", {"action": "query", "prop": "revisions", "titles": "Main Page", "waf_probe": "Main Page|Script Gallerie Photos de Carlito"}, "GET", True
 
 
