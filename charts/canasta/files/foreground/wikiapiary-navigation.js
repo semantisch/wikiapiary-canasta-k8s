@@ -24,8 +24,9 @@
 			}
 			if ( button.id === 'actions-button' && open ) {
 				rect = button.getBoundingClientRect();
-				menu.style.left = Math.max( 8, Math.min( rect.left, window.innerWidth - menu.offsetWidth - 8 ) ) + 'px';
+				menu.style.left = Math.max( 8, Math.min( rect.right - menu.offsetWidth, window.innerWidth - menu.offsetWidth - 8 ) ) + 'px';
 				menu.style.top = ( rect.bottom + 8 ) + 'px';
+				menu.style.maxHeight = Math.max( 0, window.innerHeight - rect.bottom - 16 ) + 'px';
 			}
 		}
 
