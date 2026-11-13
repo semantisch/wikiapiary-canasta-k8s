@@ -115,6 +115,23 @@ data:
       SecRule ARGS:action "@streq purge" "t:none,chain"
         SecRule ARGS:titles "@rx ^(?!.*(?:\$\(|`))[^<>{}\[\]\x00-\x1f]+$" "t:none,ctl:ruleRemoveTargetById=932230;ARGS:titles,ctl:ruleRemoveTargetById=932250;ARGS:titles,ctl:ruleRemoveTargetById=932125;ARGS:titles,ctl:ruleRemoveTargetById=932380;ARGS:titles,ctl:ruleRemoveTargetById=932370;ARGS:titles,ctl:ruleRemoveTargetById=932235;ARGS:titles,ctl:ruleRemoveTargetById=933160;ARGS:titles,ctl:ruleRemoveTargetById=942140;ARGS:titles,ctl:ruleRemoveTargetById=942151;ARGS:titles,ctl:ruleRemoveTargetById=942190;ARGS:titles"
 
+    # Reviewed Newsbin bot subpages contain the literal substring bin/ex.
+    # Limit this shell-signature exception to the exact profile and subpages.
+    SecRule REQUEST_FILENAME "@streq /w/api.php" "id:1111130,phase:2,pass,nolog,t:none,chain"
+      SecRule ARGS:action "@streq query" "t:none,chain"
+        SecRule ARGS:prop "@streq revisions" "t:none,chain"
+          SecRule ARGS:titles "@rx ^Newsbin(?:/(?:General|Extensions|Libraries|Skins|Interwikimap|Namespaces|Statistics[ _]snapshot))?(?:\|Newsbin(?:/(?:General|Extensions|Libraries|Skins|Interwikimap|Namespaces|Statistics[ _]snapshot))?)*$" "t:none,ctl:ruleRemoveTargetById=932160;ARGS:titles"
+    SecRule REQUEST_FILENAME "@streq /w/api.php" "id:1111131,phase:2,pass,nolog,t:none,chain"
+      SecRule ARGS:action "@streq edit" "t:none,chain"
+        SecRule ARGS:title "@rx ^Newsbin(?:/(?:General|Extensions|Libraries|Skins|Interwikimap|Namespaces|Statistics[ _]snapshot))?$" "t:none,ctl:ruleRemoveTargetById=932160;ARGS:title"
+    SecRule REQUEST_FILENAME "@streq /w/api.php" "id:1111132,phase:2,pass,nolog,t:none,chain"
+      SecRule ARGS:action "@streq purge" "t:none,chain"
+        SecRule ARGS:titles "@rx ^Newsbin(?:/(?:General|Extensions|Libraries|Skins|Interwikimap|Namespaces|Statistics[ _]snapshot))?$" "t:none,ctl:ruleRemoveTargetById=932160;ARGS:titles"
+
+    # The imported BASE64 profile name is not the base64 executable.
+    SecRule REQUEST_FILENAME "@streq /w/index.php" "id:1111133,phase:2,pass,nolog,t:none,chain"
+      SecRule ARGS:title "@streq BASE64_Tecnologia_-_Wiki/Whois" "t:none,ctl:ruleRemoveTargetById=932260;ARGS:title"
+
     # Content is data in these fields. MediaWiki supplies authentication, CSRF
     # checks, permissions and sanitisation. Other arguments remain inspected.
     # Phase 2 is needed to see action and text in POST form bodies.
