@@ -363,6 +363,8 @@
   display: block;
   position: fixed;
   clip: auto;
+  width: max-content;
+  min-width: 13rem;
   max-width: calc(100vw - 16px);
 }
 
@@ -378,8 +380,14 @@
   justify-content: flex-end;
   gap: 0.5rem 1rem;
   float: none;
-  margin: 0.75rem 0;
+  margin: 0;
   max-height: none;
+}
+
+/* MediaWiki's empty container contains a newline, so :empty cannot remove
+ * its spacing. Give only actual indicators a margin. */
+.skin-foreground .mw-indicators > * {
+  margin: 0.75rem 0;
 }
 
 .skin-foreground .mw-indicators:empty {
@@ -469,11 +477,20 @@
 }
 
 .skin-foreground #p-cactions #actions {
+  margin: 0;
   padding: 0.45rem;
   border: 1px solid var(--wa-border);
   border-radius: var(--wa-radius);
   background: var(--wa-surface);
   box-shadow: var(--wa-shadow);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  overflow-y: auto;
+}
+
+.skin-foreground #p-cactions #actions::before,
+.skin-foreground #p-cactions #actions::after {
+  display: none;
 }
 
 .skin-foreground #p-cactions #actions a {
@@ -800,10 +817,6 @@
     width: calc(100% - 1rem);
     margin: 0 0.5rem;
     box-shadow: none;
-  }
-
-  .skin-foreground #page-content {
-    margin-top: 0.85rem;
   }
 
   .skin-foreground #p-cactions {
