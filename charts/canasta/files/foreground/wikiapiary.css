@@ -11,6 +11,7 @@
   --wa-border: #dfe3e8;
   --wa-border-strong: #c9ced6;
   --wa-brand: #f5b700;
+  --wa-brand-hover: #e3a900;
   --wa-brand-strong: #925800;
   --wa-brand-soft: #fff5cc;
   --wa-nav: #fff3cf;
@@ -89,13 +90,13 @@
   border: 1px solid var(--wa-brand);
   border-right: 0;
   border-radius: 10px 0 0 10px;
-  background: var(--wa-brand-soft);
+  background: var(--wa-brand);
   color: var(--wa-ink);
   box-shadow: var(--wa-shadow-sm);
   font: 600 14px Poppins, ui-sans-serif, sans-serif;
   text-decoration: none;
 }
-.skin-foreground #wikiapiary-feedback:hover { background: var(--wa-nav-hover); }
+.skin-foreground #wikiapiary-feedback:hover { background: var(--wa-brand-hover); }
 .skin-foreground #wikiapiary-feedback img { width: 28px; height: 28px; object-fit: contain; }
 .skin-foreground #wikiapiary-feedback[aria-busy="true"] { cursor: progress; }
 @media print { #wikiapiary-feedback, #featurehub-widget { display: none !important; } }
@@ -202,14 +203,26 @@
   flex: 0 0 auto;
   width: auto;
   padding: 0 0.65rem;
-  border: 1px solid var(--wa-brand-strong);
+  border: 1px solid var(--wa-brand);
   border-radius: var(--wa-radius-sm);
-  background: var(--wa-brand-soft);
-  color: var(--wa-brand-strong);
+  /* Override the legacy site-wide navigation colours without changing other links. */
+  background: var(--wa-brand) !important;
+  color: var(--wa-ink) !important;
   font-size: 0.8rem;
   font-weight: 700;
   line-height: 2.25rem;
   white-space: nowrap;
+}
+
+.skin-foreground #wikiapiary-sparql:hover {
+  background: var(--wa-brand-hover) !important;
+  border-color: var(--wa-brand-hover);
+  color: var(--wa-ink) !important;
+}
+
+.skin-foreground #wikiapiary-sparql:focus-visible,
+.skin-foreground #wikiapiary-feedback:focus-visible {
+  outline-color: var(--wa-brand-strong);
 }
 
 .skin-foreground .wikiapiary-search-actions #searchform {
