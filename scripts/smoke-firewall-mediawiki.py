@@ -15,6 +15,8 @@ def cases():
                          "subobject": "", "options": {"dir": None, "lang": "en",
                          "group": None, "offset": None}, "type": "html"})
     benign = [
+        ('IRB edit title without token', '/w/api.php', {'action': 'edit', 'title': 'IRB WikiDesk/General', 'format': 'json'}, 'POST'),
+        ('PHP-like purge title', '/w/api.php', {'action': 'purge', 'titles': 'Wiki Power System (powersystem.info)', 'format': 'json'}, 'POST'),
         ('IRB batch titles', '/w/api.php', {'action': 'query', 'prop': 'revisions', 'rvprop': 'ids', 'titles': 'IRB WikiDesk|IRB WikiDesk/General', 'format': 'json'}, 'GET'),
         ('Diff batch titles', '/w/api.php', {'action': 'query', 'prop': 'revisions', 'rvprop': 'ids', 'titles': 'Buddhism Chat (wiki.buddhism-chat.org)|Diff.wiki (diff.wiki)', 'format': 'json'}, 'GET'),
         ('San batch titles', '/w/api.php', {'action': 'query', 'prop': 'revisions', 'rvprop': 'ids', 'titles': 'San Francisco Rush Wiki (sfrush.org)|San Francisco Rush Wiki (sfrush.org)/General', 'format': 'json'}, 'GET'),

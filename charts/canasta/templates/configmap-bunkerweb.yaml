@@ -107,6 +107,14 @@ data:
       SecRule ARGS:action "@streq edit" "t:none,chain"
         SecRule ARGS:title "@streq Rick and Morty Time (rickandmortytime.com)" "t:none,ctl:ruleRemoveTargetById=942100;ARGS:title"
 
+    # Edit and purge use the same literal titles as revision reads.
+    SecRule REQUEST_FILENAME "@streq /w/api.php" "id:1111127,phase:2,pass,nolog,t:none,chain"
+      SecRule ARGS:action "@streq edit" "t:none,chain"
+        SecRule ARGS:title "@rx ^(?!.*(?:\$\(|`))[^<>{}\[\]\x00-\x1f]+$" "t:none,ctl:ruleRemoveTargetById=932230;ARGS:title,ctl:ruleRemoveTargetById=932250;ARGS:title,ctl:ruleRemoveTargetById=932125;ARGS:title,ctl:ruleRemoveTargetById=932380;ARGS:title,ctl:ruleRemoveTargetById=932370;ARGS:title"
+    SecRule REQUEST_FILENAME "@streq /w/api.php" "id:1111128,phase:2,pass,nolog,t:none,chain"
+      SecRule ARGS:action "@streq purge" "t:none,chain"
+        SecRule ARGS:titles "@rx ^(?!.*(?:\$\(|`))[^<>{}\[\]\x00-\x1f]+$" "t:none,ctl:ruleRemoveTargetById=932230;ARGS:titles,ctl:ruleRemoveTargetById=932250;ARGS:titles,ctl:ruleRemoveTargetById=932125;ARGS:titles,ctl:ruleRemoveTargetById=932380;ARGS:titles,ctl:ruleRemoveTargetById=932370;ARGS:titles,ctl:ruleRemoveTargetById=932235;ARGS:titles,ctl:ruleRemoveTargetById=933160;ARGS:titles,ctl:ruleRemoveTargetById=942140;ARGS:titles,ctl:ruleRemoveTargetById=942151;ARGS:titles,ctl:ruleRemoveTargetById=942190;ARGS:titles"
+
     # Content is data in these fields. MediaWiki supplies authentication, CSRF
     # checks, permissions and sanitisation. Other arguments remain inspected.
     # Phase 2 is needed to see action and text in POST form bodies.
